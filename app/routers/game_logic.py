@@ -595,6 +595,16 @@ async def _start_buzzer_round(lobby_name: str, manager):
         
         await storage.set_lobby(lobby_name, lobby)
         
+        # CRITICAL: Broadcast buzzer_cleared event to reset client-side hasBuzzed state
+        await manager.broadcast_to_lobby(lobby_name, WSEvent(
+            type=WSEventType.GAME_STATE,
+            payload={
+                "phase": "buzzer_cleared", 
+                "message": "🔄 Buzzers reset - everyone can buzz again!"
+            },
+            timestamp=time.time()
+        ))
+        
         # Show the trivia question
         await manager.broadcast_to_lobby(lobby_name, WSEvent(
             type=WSEventType.GAME_STATE,
@@ -781,6 +791,17 @@ async def _start_next_question(lobby_name: str, manager):
     game_data.buzzers = []
     
     await storage.set_lobby(lobby_name, lobby)
+    
+    # CRITICAL: Broadcast buzzer_cleared event to reset client-side hasBuzzed state
+    # This follows the open-source pattern from research to enable repeat buzz-ins
+    await manager.broadcast_to_lobby(lobby_name, WSEvent(
+        type=WSEventType.GAME_STATE,
+        payload={
+            "phase": "buzzer_cleared",
+            "message": "🔄 Buzzers reset for new question - everyone can buzz again!"
+        },
+        timestamp=time.time()
+    ))
     
     # Show new question
     await manager.broadcast_to_lobby(lobby_name, WSEvent(

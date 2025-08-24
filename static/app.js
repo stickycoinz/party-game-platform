@@ -442,11 +442,34 @@ class GameClient {
             this.showBuzzerActive(payload);
         } else if (payload.phase === 'player_buzzed') {
             this.showPlayerBuzzed(payload);
-        } else if (payload.phase === 'live_buzzers') {
-            console.log(`LIVE BUZZERS EVENT - Player: ${this.currentPlayer}, hasBuzzed before: ${this.hasBuzzed}`);
-            this.showLiveBuzzers(payload);
-            console.log(`LIVE BUZZERS EVENT - Player: ${this.currentPlayer}, hasBuzzed after: ${this.hasBuzzed}`);
-        } else if (payload.phase === 'buzzer_countdown') {
+                    } else if (payload.phase === 'live_buzzers') {
+                console.log(`LIVE BUZZERS EVENT - Player: ${this.currentPlayer}, hasBuzzed before: ${this.hasBuzzed}`);
+                this.showLiveBuzzers(payload);
+                console.log(`LIVE BUZZERS EVENT - Player: ${this.currentPlayer}, hasBuzzed after: ${this.hasBuzzed}`);
+            } else if (payload.phase === 'buzzer_cleared') {
+                // CRITICAL: Reset hasBuzzed state when buzzers are cleared (new question)
+                // This implements the open-source pattern for repeat buzz-ins
+                console.log(`🔄 BUZZER CLEARED EVENT - Resetting hasBuzzed for ${this.currentPlayer}`);
+                console.log(`hasBuzzed before reset: ${this.hasBuzzed}`);
+                this.hasBuzzed = false;
+                console.log(`hasBuzzed after reset: ${this.hasBuzzed}`);
+                
+                // Re-enable the buzzer button
+                const buzzerButton = document.getElementById('buzzerButton');
+                if (buzzerButton) {
+                    buzzerButton.disabled = false;
+                    buzzerButton.style.backgroundColor = '#22c55e'; // Green
+                    buzzerButton.textContent = 'BUZZ IN!';
+                }
+                
+                // Clear buzz status
+                const buzzStatus = document.getElementById('buzzStatus');
+                if (buzzStatus) {
+                    buzzStatus.textContent = '';
+                }
+                
+                console.log(`✅ ${this.currentPlayer} ready to buzz again!`);
+            } else if (payload.phase === 'buzzer_countdown') {
             this.updateCountdown(payload);
         } else if (payload.phase === 'host_judging') {
             this.showHostJudging(payload);
