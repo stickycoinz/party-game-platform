@@ -408,6 +408,12 @@ class GameClient {
             this.showBuzzerActive(payload);
         } else if (payload.phase === 'player_buzzed') {
             this.showPlayerBuzzed(payload);
+        } else if (payload.phase === 'host_judging') {
+            this.showHostJudging(payload);
+        } else if (payload.phase === 'points_awarded') {
+            this.showPointsAwarded(payload);
+        } else if (payload.phase === 'next_question') {
+            this.showNextQuestion(payload);
         } else if (payload.phase === 'buzzer_results') {
             this.showBuzzerResults(payload);
         } else if (payload.phase === 'timeout') {
@@ -427,6 +433,7 @@ class GameClient {
     hideAllBuzzerPhases() {
         document.getElementById('categoryVotingPhase').classList.add('hidden');
         document.getElementById('questionPhase').classList.add('hidden');
+        document.getElementById('hostJudgingPhase').classList.add('hidden');
         document.getElementById('buzzerResultsPhase').classList.add('hidden');
         document.getElementById('buzzerSection').classList.add('hidden');
     }
@@ -480,14 +487,14 @@ class GameClient {
         document.getElementById('buzzerTimer').textContent = payload.message;
     }
     
-    showBuzzerResults(payload) {
+    showHostJudging(payload) {
         this.hideAllBuzzerPhases();
-        document.getElementById('buzzerResultsPhase').classList.remove('hidden');
+        document.getElementById('hostJudgingPhase').classList.remove('hidden');
         
         document.getElementById('buzzerTimer').textContent = payload.message;
         
-        const resultsDiv = document.getElementById('buzzerResults');
-        resultsDiv.innerHTML = '';
+        const orderDiv = document.getElementById('buzzerOrder');
+        orderDiv.innerHTML = '';
         
         // Show question and answer
         const questionDiv = document.createElement('div');
@@ -496,7 +503,7 @@ class GameClient {
             <p><strong>Q:</strong> ${payload.question}</p>
             <p><strong>A:</strong> ${payload.correct_answer}</p>
         `;
-        resultsDiv.appendChild(questionDiv);
+        orderDiv.appendChild(questionDiv);
         
         // Show buzzer order
         if (payload.buzzers && payload.buzzers.length > 0) {
@@ -509,12 +516,73 @@ class GameClient {
                 const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `${index + 1}.`;
                 buzzerDiv.innerHTML = `
                     <span>${medal} ${buzzer.player}</span>
-                    <span>${buzzer.position === 1 ? '3 pts' : buzzer.position === 2 ? '2 pts' : buzzer.position === 3 ? '1 pt' : '0 pts'}</span>
+                    <span>Buzzed ${index + 1}${index === 0 ? 'st' : index === 1 ? 'nd' : index === 2 ? 'rd' : 'th'}</span>
                 `;
                 buzzersDiv.appendChild(buzzerDiv);
             });
             
-            resultsDiv.appendChild(buzzersDiv);
+            orderDiv.appendChild(buzzersDiv);
+        }
+        
+        // Show host controls if user is the host
+        if (payload.host_controls && this.isHost) {
+            document.getElementById('hostControls').classList.remove('hidden');
+            this.setupHostControls(payload.buzzers);
+        }
+    }
+    
+    setupHostControls(buzzers) {
+        const pointButtonsDiv = document.getElementById('pointButtons');
+        pointButtonsDiv.innerHTML = '';
+        
+        if (buzzers && buzzers.length > 0) {
+            buzzers.forEach(buzzer => {
+                const button = document.createElement('button');
+                button.textContent = `Give ${buzzer.player} 1 point`;
+                button.style.cssText = 'width: 100%; margin: 4px 0; padding: 8px; background: #48bb78; color: white;';
+                button.onclick = () => this.awardPoints(buzzer.player, 1);
+                pointButtonsDiv.appendChild(button);
+            });
+        }
+    }
+    
+    showPointsAwarded(payload) {
+        document.getElementById('buzzerTimer').textContent = payload.message;
+        
+        // Update scoreboard if visible
+        if (payload.total_scores) {
+            console.log('Updated scores:', payload.total_scores);
+        }
+    }
+    
+    showNextQuestion(payload) {
+        document.getElementById('buzzerTimer').textContent = payload.message;
+    }
+    
+    showBuzzerResults(payload) {
+        this.hideAllBuzzerPhases();
+        document.getElementById('buzzerResultsPhase').classList.remove('hidden');
+        
+        document.getElementById('buzzerTimer').textContent = payload.message;
+        
+        const resultsDiv = document.getElementById('buzzerResults');
+        resultsDiv.innerHTML = '';
+        
+        // Show round summary
+        if (payload.total_scores) {
+            const scoresDiv = document.createElement('div');
+            scoresDiv.innerHTML = '<h4>Current Scores:</h4>';
+            
+            Object.entries(payload.total_scores)
+                .sort(([,a], [,b]) => b - a)
+                .forEach(([player, score]) => {
+                    const scoreDiv = document.createElement('div');
+                    scoreDiv.className = 'result-item';
+                    scoreDiv.innerHTML = `<span>${player}</span><span>${score} points</span>`;
+                    scoresDiv.appendChild(scoreDiv);
+                });
+            
+            resultsDiv.appendChild(scoresDiv);
         }
     }
     
@@ -542,6 +610,26 @@ class GameClient {
         
         document.getElementById('buzzStatus').textContent = 'Buzzing in...';
         document.getElementById('buzzerButton').disabled = true;
+    }
+    
+    awardPoints(playerName, points) {
+        this.sendWebSocketMessage('game_action', {
+            action: 'award_points',
+            player_name: playerName,
+            points: points,
+            timestamp: Date.now() / 1000
+        });
+    }
+    
+    nextQuestion() {
+        this.sendWebSocketMessage('game_action', {
+            action: 'next_question',
+            timestamp: Date.now() / 1000
+        });
+    }
+    
+    get isHost() {
+        return this.currentLobby && this.currentLobby.host === this.currentPlayer;
     }
     
     updateGameTick(payload) {
@@ -698,6 +786,10 @@ function leaveLobby() {
 
 function buzz() {
     window.gameClient.buzz();
+}
+
+function nextQuestion() {
+    window.gameClient.nextQuestion();
 }
 
 // Initialize the game client when page loads

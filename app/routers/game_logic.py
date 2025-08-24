@@ -4,7 +4,8 @@ import random
 from typing import Dict, List
 from app.schemas.game import (
     TapGauntletData, BuzzerTriviaData, GameState, GameType, GameResults, PlayerScore,
-    WSEvent, WSEventType, TapAction, TapResponseAction, VoteCategoryAction, BuzzerAction
+    WSEvent, WSEventType, TapAction, TapResponseAction, VoteCategoryAction, BuzzerAction, 
+    AwardPointsAction, NextQuestionAction
 )
 from app.schemas.lobby import Lobby
 from app.utils.storage import get_storage
@@ -524,8 +525,8 @@ async def _start_buzzer_round(lobby_name: str, manager):
             if lobby and isinstance(lobby.current_game, BuzzerTriviaData):
                 game_data = lobby.current_game
                 if game_data.buzzers:
-                    # Someone buzzed! Show results
-                    await _show_buzzer_results(lobby_name, manager)
+                    # Someone buzzed! Show buzzer order and wait for host
+                    await _show_buzzer_order(lobby_name, manager)
                     return
             await asyncio.sleep(0.1)  # Check every 100ms
         
@@ -541,15 +542,15 @@ async def _start_buzzer_round(lobby_name: str, manager):
         
         await asyncio.sleep(3)
         
-        # End game for now (can extend to multiple rounds later)
-        await _end_buzzer_trivia_game(lobby_name, manager)
+        # End round or continue to next question
+        await _end_buzzer_round(lobby_name, manager)
         
     except Exception as e:
         print(f"Error in _start_buzzer_round: {e}")
         await _end_buzzer_trivia_game(lobby_name, manager)
 
-async def _show_buzzer_results(lobby_name: str, manager):
-    """Show who buzzed in first and their ranking."""
+async def _show_buzzer_order(lobby_name: str, manager):
+    """Show buzzer order and wait for host to award points."""
     storage = await get_storage()
     lobby = await storage.get_lobby(lobby_name)
     
@@ -567,23 +568,77 @@ async def _show_buzzer_results(lobby_name: str, manager):
     
     await storage.set_lobby(lobby_name, lobby)
     
-    # Show buzzer results
+    # Show buzzer order and host controls
     await manager.broadcast_to_lobby(lobby_name, WSEvent(
         type=WSEventType.GAME_STATE,
         payload={
-            "phase": "buzzer_results",
+            "phase": "host_judging",
             "question": game_data.current_question,
             "correct_answer": game_data.correct_answer,
             "buzzers": game_data.buzzers,
-            "message": f"🏆 {game_data.buzzers[0]['player']} buzzed in first!" if game_data.buzzers else "No one buzzed in!",
+            "message": f"🔔 Buzzer Order! Host: Award points to the correct answer!",
+            "host_controls": True
         },
         timestamp=time.time()
     ))
     
-    await asyncio.sleep(5)  # Show results for 5 seconds
+    # Don't auto-advance - wait for host action
+
+async def _end_buzzer_round(lobby_name: str, manager):
+    """End the current round and either start next question or end game."""
+    storage = await get_storage()
+    lobby = await storage.get_lobby(lobby_name)
     
-    # End game for now
-    await _end_buzzer_trivia_game(lobby_name, manager)
+    if not lobby or not isinstance(lobby.current_game, BuzzerTriviaData):
+        return
+    
+    game_data = lobby.current_game
+    
+    # Check if we should continue or end the game
+    if game_data.current_round >= game_data.max_rounds:
+        await _end_buzzer_trivia_game(lobby_name, manager)
+    else:
+        # Start next round
+        game_data.current_round += 1
+        await _start_next_question(lobby_name, manager)
+
+async def _start_next_question(lobby_name: str, manager):
+    """Start the next trivia question."""
+    storage = await get_storage()
+    lobby = await storage.get_lobby(lobby_name)
+    
+    if not lobby or not isinstance(lobby.current_game, BuzzerTriviaData):
+        return
+    
+    game_data = lobby.current_game
+    
+    # Pick a new question from the same category
+    questions = TRIVIA_QUESTIONS.get(game_data.selected_category, [])
+    if questions:
+        selected_q = random.choice(questions)
+        game_data.current_question = selected_q["question"]
+        game_data.correct_answer = selected_q["answer"]
+    
+    # Reset buzzers for new round
+    game_data.buzzers = []
+    
+    await storage.set_lobby(lobby_name, lobby)
+    
+    # Show new question
+    await manager.broadcast_to_lobby(lobby_name, WSEvent(
+        type=WSEventType.GAME_STATE,
+        payload={
+            "phase": "next_question",
+            "round": game_data.current_round,
+            "message": f"Round {game_data.current_round} coming up!",
+        },
+        timestamp=time.time()
+    ))
+    
+    await asyncio.sleep(2)
+    
+    # Start the new buzzer round
+    await _start_buzzer_round(lobby_name, manager)
 
 async def _end_buzzer_trivia_game(lobby_name: str, manager):
     """End the buzzer trivia game and show final results."""
@@ -705,3 +760,31 @@ async def handle_buzzer_trivia_action(lobby_name: str, player_name: str, action:
                 },
                 timestamp=time.time()
             ))
+    
+    elif action == "award_points":
+        awarded_player = payload.get("player_name")
+        points = payload.get("points", 1)
+        
+        if awarded_player and awarded_player in [p.name for p in lobby.players]:
+            # Award points
+            game_data.total_scores[awarded_player] = game_data.total_scores.get(awarded_player, 0) + points
+            await storage.set_lobby(lobby_name, lobby)
+            
+            # Broadcast point award
+            await manager.broadcast_to_lobby(lobby_name, WSEvent(
+                type=WSEventType.GAME_STATE,
+                payload={
+                    "phase": "points_awarded",
+                    "awarded_player": awarded_player,
+                    "points": points,
+                    "message": f"🏆 {awarded_player} gets {points} point{'s' if points != 1 else ''}!",
+                    "total_scores": game_data.total_scores
+                },
+                timestamp=time.time()
+            ))
+    
+    elif action == "next_question":
+        # Only the host can trigger next question
+        if player_name == lobby.host:
+            await asyncio.sleep(2)  # Brief pause before next question
+            await _start_next_question(lobby_name, manager)

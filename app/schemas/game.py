@@ -179,6 +179,16 @@ class BuzzerAction(BaseModel):
     action: Literal["buzz"] = "buzz"
     timestamp: float
 
+class AwardPointsAction(BaseModel):
+    action: Literal["award_points"] = "award_points"
+    player_name: str
+    points: int
+    timestamp: float
+
+class NextQuestionAction(BaseModel):
+    action: Literal["next_question"] = "next_question"
+    timestamp: float
+
 # Start Game Request
 class StartGameRequest(BaseModel):
     game_type: GameType
