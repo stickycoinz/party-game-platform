@@ -447,37 +447,44 @@ async def _show_round_results(lobby_name: str, manager):
 
 async def _start_trivia_round(lobby_name: str, manager):
     """Start a new round of trivia."""
-    storage = await get_storage()
-    lobby = await storage.get_lobby(lobby_name)
-    
-    if not lobby or not isinstance(lobby.current_game, ReverseTriviaData):
-        return
-    
-    game_data = lobby.current_game
-    game_data.submissions = {}
-    game_data.votes = {}
-    game_data.round_scores = {}
-    
-    await storage.set_lobby(lobby_name, lobby)
-    
-    # Show the answer and ask for questions
-    await manager.broadcast_to_lobby(lobby_name, WSEvent(
-        type=WSEventType.GAME_STATE,
-        payload={
-            "phase": "submission",
-            "round": game_data.current_round,
-            "answer": game_data.current_answer,
-            "message": f"Round {game_data.current_round}: Write a question for: {game_data.current_answer}",
-            "time_limit": 30
-        },
-        timestamp=time.time()
-    ))
-    
-    # Wait 30 seconds for submissions
-    await asyncio.sleep(30)
-    
-    # Move to voting phase
-    await _start_voting_phase(lobby_name, manager)
+    try:
+        storage = await get_storage()
+        lobby = await storage.get_lobby(lobby_name)
+        
+        if not lobby or not isinstance(lobby.current_game, ReverseTriviaData):
+            print(f"Invalid lobby or game data for {lobby_name}")
+            return
+        
+        game_data = lobby.current_game
+        game_data.submissions = {}
+        game_data.votes = {}
+        game_data.round_scores = {}
+        
+        await storage.set_lobby(lobby_name, lobby)
+        
+        # Show the answer and ask for questions
+        await manager.broadcast_to_lobby(lobby_name, WSEvent(
+            type=WSEventType.GAME_STATE,
+            payload={
+                "phase": "submission",
+                "round": game_data.current_round,
+                "answer": game_data.current_answer,
+                "message": f"Round {game_data.current_round}: Write a question for: {game_data.current_answer}",
+                "time_limit": 30
+            },
+            timestamp=time.time()
+        ))
+        
+        # Wait 30 seconds for submissions
+        await asyncio.sleep(30)
+        
+        # For now, just end the game to test basic functionality
+        await _end_reverse_trivia_game(lobby_name, manager)
+        
+    except Exception as e:
+        print(f"Error in _start_trivia_round: {e}")
+        # End game on error
+        await _end_reverse_trivia_game(lobby_name, manager)
 
 async def _end_reverse_trivia_game(lobby_name: str, manager):
     """End the game and show final results."""
