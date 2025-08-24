@@ -6,7 +6,7 @@ from app.schemas.game import StartGameRequest, GameType, GameState
 from app.utils.storage import get_storage, StorageBackend
 from app.utils.errors import *
 from app.utils.ids import validate_name, generate_player_id
-from app.routers.game_logic import start_tap_gauntlet
+from app.routers.game_logic import start_tap_gauntlet, start_reverse_trivia
 
 router = APIRouter(prefix="/lobby", tags=["lobby"])
 
@@ -125,16 +125,19 @@ async def start_game(
     
     # Start the specific game type
     success = False
-    if data.game_type == GameType.TAP_GAUNTLET:
-        from app.routers.ws_routes import manager
-        success = await start_tap_gauntlet(lobby_name, lobby, manager)
-    elif data.game_type == GameType.REVERSE_TRIVIA:
-        try:
-            from app.routers.ws_routes import manager
+    from app.routers.ws_routes import manager
+    
+    try:
+        if data.game_type == GameType.TAP_GAUNTLET:
+            success = await start_tap_gauntlet(lobby_name, lobby, manager)
+        elif data.game_type == GameType.REVERSE_TRIVIA:
             success = await start_reverse_trivia(lobby_name, lobby, manager)
-        except Exception as e:
-            print(f"Error starting reverse trivia: {e}")
-            raise HTTPException(status_code=500, detail=f"Error starting game: {str(e)}")
+        else:
+            raise HTTPException(status_code=400, detail=f"Unknown game type: {data.game_type}")
+            
+    except Exception as e:
+        print(f"Error starting {data.game_type}: {e}")
+        raise HTTPException(status_code=500, detail=f"Error starting game: {str(e)}")
     
     if not success:
         raise HTTPException(status_code=500, detail="Failed to start game")
