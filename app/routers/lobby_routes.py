@@ -1,8 +1,9 @@
 from fastapi import APIRouter, HTTPException, Depends
 from typing import List
 import secrets
+import time
 from app.schemas.lobby import LobbyCreate, LobbyJoin, Lobby, Player, LobbyInfo
-from app.schemas.game import StartGameRequest, GameType, GameState
+from app.schemas.game import StartGameRequest, GameType, GameState, WSEvent, WSEventType
 from app.utils.storage import get_storage, StorageBackend
 from app.utils.errors import *
 from app.utils.ids import validate_name, generate_player_id
@@ -143,6 +144,89 @@ async def start_game(
         raise HTTPException(status_code=500, detail="Failed to start game")
     
     return {"ok": True, "game_type": data.game_type}
+
+@router.delete("/{lobby_name}")
+async def force_delete_lobby(
+    lobby_name: str,
+    storage: StorageBackend = Depends(get_storage)
+) -> dict:
+    """Force delete a lobby (cleanup endpoint)."""
+    # Get lobby first to check if it exists
+    lobby = await storage.get_lobby(lobby_name)
+    if not lobby:
+        raise lobby_not_found_error(lobby_name)
+    
+    # Notify any remaining connected players
+    from app.routers.ws_routes import manager
+    try:
+        await manager.broadcast_to_lobby(lobby_name, WSEvent(
+            type=WSEventType.LOBBY_UPDATED,
+            payload={"message": "Room has been deleted"},
+            timestamp=time.time()
+        ))
+        
+        # Disconnect all players from this lobby
+        if lobby_name in manager.active_connections:
+            connections_to_close = list(manager.active_connections[lobby_name])
+            for websocket in connections_to_close:
+                try:
+                    await websocket.close(code=4001, reason="Lobby deleted")
+                    await manager.disconnect(websocket)
+                except Exception:
+                    pass
+    except Exception as e:
+        print(f"Error notifying players during lobby deletion: {e}")
+    
+    # Delete the lobby
+    await storage.delete_lobby(lobby_name)
+    print(f"Force deleted lobby: {lobby_name}")
+    
+    return {"ok": True, "deleted": lobby_name}
+
+@router.get("/admin/list")
+async def list_all_lobbies_admin(storage: StorageBackend = Depends(get_storage)) -> dict:
+    """Admin endpoint to list all lobbies with connection info."""
+    from app.routers.ws_routes import manager
+    
+    lobbies = await storage.list_lobbies()
+    lobby_info = []
+    
+    for lobby_data in lobbies:
+        lobby_name = lobby_data.lobby_name
+        connected_count = len(manager.active_connections.get(lobby_name, []))
+        
+        lobby_info.append({
+            "name": lobby_name,
+            "players": [p.name for p in lobby_data.players],
+            "player_count": len(lobby_data.players),
+            "connected_count": connected_count,
+            "game_state": lobby_data.game_state,
+            "current_game": lobby_data.current_game.game_type if lobby_data.current_game else None,
+            "host": lobby_data.host,
+            "needs_cleanup": connected_count == 0 or len(lobby_data.players) == 0
+        })
+    
+    return {
+        "lobbies": lobby_info,
+        "total_count": len(lobby_info)
+    }
+
+@router.post("/admin/cleanup")
+async def cleanup_empty_lobbies(storage: StorageBackend = Depends(get_storage)) -> dict:
+    """Cleanup all empty lobbies."""
+    from app.routers.ws_routes import manager
+    
+    # Run cleanup
+    await manager.cleanup_all_empty_lobbies()
+    
+    # Get updated count
+    remaining_lobbies = await storage.list_lobbies()
+    
+    return {
+        "ok": True,
+        "message": "Cleanup completed",
+        "remaining_lobbies": len(remaining_lobbies)
+    }
 
 @router.get("/{lobby_name}", response_model=Lobby)
 async def get_lobby(lobby_name: str, storage: StorageBackend = Depends(get_storage)) -> Lobby:

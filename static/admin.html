@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Room Management - Party Game Platform</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: white;
+        }
+        
+        .container {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 16px;
+            padding: 24px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+        
+        h1 {
+            text-align: center;
+            margin-bottom: 32px;
+        }
+        
+        .controls {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 32px;
+            flex-wrap: wrap;
+        }
+        
+        button {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .refresh-btn {
+            background: #4299e1;
+            color: white;
+        }
+        
+        .cleanup-btn {
+            background: #f56565;
+            color: white;
+        }
+        
+        .stats {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 16px;
+            border-radius: 8px;
+            margin-bottom: 24px;
+        }
+        
+        .room-list {
+            display: grid;
+            gap: 16px;
+        }
+        
+        .room-card {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            padding: 16px;
+            border-left: 4px solid #4299e1;
+        }
+        
+        .room-card.needs-cleanup {
+            border-left-color: #f56565;
+            background: rgba(245, 101, 101, 0.1);
+        }
+        
+        .room-header {
+            display: flex;
+            justify-content: between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+        
+        .room-name {
+            font-size: 18px;
+            font-weight: bold;
+        }
+        
+        .room-status {
+            font-size: 12px;
+            padding: 4px 8px;
+            border-radius: 4px;
+            background: rgba(255, 255, 255, 0.2);
+        }
+        
+        .room-details {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 8px;
+            font-size: 14px;
+        }
+        
+        .delete-btn {
+            background: #e53e3e;
+            color: white;
+            font-size: 12px;
+            padding: 6px 12px;
+            margin-top: 8px;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 40px;
+            opacity: 0.7;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            opacity: 0.7;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎮 Room Management</h1>
+        
+        <div class="controls">
+            <button class="refresh-btn" onclick="loadRooms()">🔄 Refresh</button>
+            <button class="cleanup-btn" onclick="cleanupRooms()">🧹 Cleanup Empty Rooms</button>
+        </div>
+        
+        <div class="stats" id="stats">
+            <div class="loading">Loading room statistics...</div>
+        </div>
+        
+        <div class="room-list" id="roomList">
+            <div class="loading">Loading rooms...</div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = window.location.origin;
+
+        async function apiCall(endpoint, method = 'GET') {
+            try {
+                const response = await fetch(`${API_BASE}${endpoint}`, { method });
+                return await response.json();
+            } catch (error) {
+                console.error('API Error:', error);
+                return { error: error.message };
+            }
+        }
+
+        async function loadRooms() {
+            document.getElementById('roomList').innerHTML = '<div class="loading">Loading rooms...</div>';
+            document.getElementById('stats').innerHTML = '<div class="loading">Loading statistics...</div>';
+
+            const data = await apiCall('/lobby/admin/list');
+            
+            if (data.error) {
+                document.getElementById('roomList').innerHTML = `<div class="empty-state">Error: ${data.error}</div>`;
+                return;
+            }
+
+            // Update stats
+            const needsCleanup = data.lobbies.filter(l => l.needs_cleanup).length;
+            document.getElementById('stats').innerHTML = `
+                <strong>Room Statistics:</strong>
+                Total Rooms: ${data.total_count} | 
+                Active Rooms: ${data.total_count - needsCleanup} | 
+                Needs Cleanup: ${needsCleanup}
+            `;
+
+            // Update room list
+            if (data.lobbies.length === 0) {
+                document.getElementById('roomList').innerHTML = '<div class="empty-state">No rooms found</div>';
+                return;
+            }
+
+            const roomsHtml = data.lobbies.map(room => `
+                <div class="room-card ${room.needs_cleanup ? 'needs-cleanup' : ''}">
+                    <div class="room-header">
+                        <div class="room-name">${room.name}</div>
+                        <div class="room-status">${room.game_state}</div>
+                    </div>
+                    <div class="room-details">
+                        <div><strong>Host:</strong> ${room.host}</div>
+                        <div><strong>Players:</strong> ${room.player_count} (${room.connected_count} connected)</div>
+                        <div><strong>Game:</strong> ${room.current_game || 'None'}</div>
+                        <div><strong>Players:</strong> ${room.players.join(', ') || 'None'}</div>
+                    </div>
+                    ${room.needs_cleanup ? '<button class="delete-btn" onclick="deleteRoom(\'' + room.name + '\')">🗑️ Delete Room</button>' : ''}
+                </div>
+            `).join('');
+
+            document.getElementById('roomList').innerHTML = roomsHtml;
+        }
+
+        async function cleanupRooms() {
+            if (!confirm('Clean up all empty rooms?')) return;
+
+            const result = await apiCall('/lobby/admin/cleanup', 'POST');
+            
+            if (result.error) {
+                alert(`Error: ${result.error}`);
+            } else {
+                alert(`Cleanup completed! ${result.remaining_lobbies} rooms remaining.`);
+                loadRooms();
+            }
+        }
+
+        async function deleteRoom(roomName) {
+            if (!confirm(`Delete room "${roomName}"?`)) return;
+
+            const result = await apiCall(`/lobby/${roomName}`, 'DELETE');
+            
+            if (result.error) {
+                alert(`Error: ${result.error}`);
+            } else {
+                alert(`Room "${roomName}" deleted successfully!`);
+                loadRooms();
+            }
+        }
+
+        // Load rooms on page load
+        loadRooms();
+        
+        // Auto-refresh every 30 seconds
+        setInterval(loadRooms, 30000);
+    </script>
+</body>
+</html>

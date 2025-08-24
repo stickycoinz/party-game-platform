@@ -113,10 +113,42 @@ class ConnectionManager:
                     break
     
     async def _cleanup_empty_lobby(self, lobby_name: str):
-        """Remove lobby if no connections remain."""
-        if lobby_name not in self.active_connections or not self.active_connections[lobby_name]:
-            storage = await get_storage()
+        """Remove lobby if no connections remain or no players left."""
+        storage = await get_storage()
+        lobby = await storage.get_lobby(lobby_name)
+        
+        # Check if lobby should be cleaned up
+        has_connections = lobby_name in self.active_connections and self.active_connections[lobby_name]
+        has_players = lobby and len(lobby.players) > 0
+        
+        if not has_connections or not has_players:
+            print(f"Cleaning up lobby '{lobby_name}': connections={has_connections}, players={has_players}")
+            
+            # Close any remaining connections
+            if lobby_name in self.active_connections:
+                connections_to_close = list(self.active_connections[lobby_name])
+                for websocket in connections_to_close:
+                    try:
+                        await websocket.close(code=4001, reason="Lobby cleanup")
+                    except Exception:
+                        pass
+                del self.active_connections[lobby_name]
+            
+            # Remove lobby from storage
             await storage.delete_lobby(lobby_name)
+            print(f"Deleted empty lobby: {lobby_name}")
+    
+    async def cleanup_all_empty_lobbies(self):
+        """Cleanup all lobbies that have no connections."""
+        storage = await get_storage()
+        lobbies = await storage.list_lobbies()
+        
+        for lobby in lobbies:
+            lobby_name = lobby.lobby_name
+            has_connections = lobby_name in self.active_connections and self.active_connections[lobby_name]
+            
+            if not has_connections:
+                await self._cleanup_empty_lobby(lobby_name)
 
 # Global connection manager
 manager = ConnectionManager()
