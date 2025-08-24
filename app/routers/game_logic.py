@@ -791,10 +791,12 @@ async def handle_buzzer_trivia_action(lobby_name: str, player_name: str, action:
             ))
     
     elif action == "buzz":
+        print(f"BUZZ ACTION: {player_name} attempting to buzz (host: {lobby.host})")
         buzz_time = payload.get("timestamp", time.time())
         
         # Check if player already buzzed
         player_already_buzzed = any(b["player"] == player_name for b in game_data.buzzers)
+        print(f"Player {player_name} already buzzed: {player_already_buzzed}")
         if not player_already_buzzed:
             game_data.buzzers.append({
                 "player": player_name,
@@ -802,6 +804,7 @@ async def handle_buzzer_trivia_action(lobby_name: str, player_name: str, action:
                 "position": 0  # Will be calculated later
             })
             
+            print(f"Added {player_name} to buzzers list. Total buzzers: {len(game_data.buzzers)}")
             await storage.set_lobby(lobby_name, lobby)
             
             # Confirm buzz

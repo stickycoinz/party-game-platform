@@ -122,12 +122,17 @@ class GameClient {
     }
     
     sendWebSocketMessage(type, payload = {}) {
+        console.log(`Sending WebSocket message - Type: ${type}, Payload:`, payload);
         if (this.websocket && this.websocket.readyState === WebSocket.OPEN) {
-            this.websocket.send(JSON.stringify({
+            const message = {
                 type,
                 payload,
                 timestamp: Date.now() / 1000
-            }));
+            };
+            console.log('WebSocket ready, sending:', message);
+            this.websocket.send(JSON.stringify(message));
+        } else {
+            console.log('WebSocket not ready:', this.websocket ? this.websocket.readyState : 'no websocket');
         }
     }
     
@@ -759,6 +764,15 @@ class GameClient {
     }
     
     buzz() {
+        console.log(`${this.currentPlayer} (host: ${this.isHost}) attempting to buzz`);
+        console.log('hasBuzzed status before buzz:', this.hasBuzzed);
+        
+        if (this.hasBuzzed) {
+            console.log('Buzz blocked - already buzzed');
+            return;
+        }
+        
+        console.log('Sending buzz WebSocket message...');
         this.sendWebSocketMessage('game_action', {
             action: 'buzz',
             timestamp: Date.now() / 1000
@@ -767,6 +781,7 @@ class GameClient {
         this.hasBuzzed = true;  // Track that this player has buzzed
         document.getElementById('buzzStatus').textContent = 'Buzzing in...';
         document.getElementById('buzzerButton').disabled = true;
+        console.log('Buzz sent and button disabled');
     }
     
     awardPoints(playerName, points) {
