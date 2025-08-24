@@ -416,13 +416,35 @@ async def _start_category_voting(lobby_name: str, manager):
             "phase": "category_voting",
             "categories": game_data.category_options,
             "message": "Vote for a trivia category!",
-            "time_limit": 15
+            "time_limit": 15,
+            "countdown": 15
         },
         timestamp=time.time()
     ))
 
-    # Wait 15 seconds for voting
-    await asyncio.sleep(15)
+    # Wait 15 seconds for voting with live countdown
+    voting_timeout = 15
+    start_time = time.time()
+    last_countdown = voting_timeout
+    
+    while time.time() - start_time < voting_timeout:
+        current_remaining = voting_timeout - int(time.time() - start_time)
+        
+        # Send countdown update when it changes
+        if current_remaining != last_countdown and current_remaining >= 0:
+            await manager.broadcast_to_lobby(lobby_name, WSEvent(
+                type=WSEventType.GAME_STATE,
+                payload={
+                    "phase": "voting_countdown",
+                    "countdown": current_remaining,
+                    "message": f"Vote for a category! {current_remaining}s remaining",
+                    "time_limit": 15
+                },
+                timestamp=time.time()
+            ))
+            last_countdown = current_remaining
+        
+        await asyncio.sleep(0.5)  # Check every 500ms
 
     # Determine winning category
     await _select_winning_category(lobby_name, manager)
@@ -803,13 +825,22 @@ async def handle_buzzer_trivia_action(lobby_name: str, player_name: str, action:
             ))
     
     elif action == "award_points":
+        # Only the host can award points
+        if player_name != lobby.host:
+            print(f"Non-host {player_name} tried to award points (host is {lobby.host})")
+            return
+            
         awarded_player = payload.get("player_name")
         points = payload.get("points", 1)
+        
+        print(f"Host {player_name} awarding {points} points to {awarded_player}")
         
         if awarded_player and awarded_player in [p.name for p in lobby.players]:
             # Award points
             game_data.total_scores[awarded_player] = game_data.total_scores.get(awarded_player, 0) + points
             await storage.set_lobby(lobby_name, lobby)
+            
+            print(f"Points awarded! {awarded_player} now has {game_data.total_scores[awarded_player]} total points")
             
             # Broadcast point award
             await manager.broadcast_to_lobby(lobby_name, WSEvent(
@@ -823,6 +854,8 @@ async def handle_buzzer_trivia_action(lobby_name: str, player_name: str, action:
                 },
                 timestamp=time.time()
             ))
+        else:
+            print(f"Invalid player for point award: {awarded_player}")
     
     elif action == "next_question":
         # Only the host can trigger next question

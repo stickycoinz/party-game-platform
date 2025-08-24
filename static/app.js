@@ -427,6 +427,8 @@ class GameClient {
         // Handle Buzzer Trivia states
         if (payload.phase === 'category_voting') {
             this.showCategoryVotingPhase(payload);
+        } else if (payload.phase === 'voting_countdown') {
+            this.updateVotingCountdown(payload);
         } else if (payload.phase === 'category_result') {
             this.showCategoryResult(payload);
         } else if (payload.phase === 'buzzer_question') {
@@ -480,6 +482,12 @@ class GameClient {
         
         document.getElementById('buzzerTimer').textContent = payload.message;
         
+        // Show countdown if provided
+        if (payload.countdown !== undefined) {
+            document.getElementById('countdownDisplay').classList.remove('hidden');
+            document.getElementById('countdownNumber').textContent = payload.countdown;
+        }
+        
         const categoriesList = document.getElementById('categoriesList');
         categoriesList.innerHTML = '';
         
@@ -492,6 +500,29 @@ class GameClient {
         });
         
         document.getElementById('categoryVotingStatus').textContent = '';
+    }
+    
+    updateVotingCountdown(payload) {
+        document.getElementById('buzzerTimer').textContent = payload.message;
+        
+        // Update countdown display
+        const countdownDisplay = document.getElementById('countdownDisplay');
+        if (countdownDisplay.classList.contains('hidden') && payload.countdown !== undefined) {
+            countdownDisplay.classList.remove('hidden');
+        }
+        
+        const countdownEl = document.getElementById('countdownNumber');
+        if (countdownEl && payload.countdown !== undefined) {
+            countdownEl.textContent = payload.countdown;
+            // Update color based on remaining time
+            if (payload.countdown <= 5) {
+                countdownEl.style.color = '#e53e3e';
+                countdownEl.style.transform = 'scale(1.2)';
+            } else {
+                countdownEl.style.color = '#ff6b6b';
+                countdownEl.style.transform = 'scale(1)';
+            }
+        }
     }
     
     showCategoryResult(payload) {
