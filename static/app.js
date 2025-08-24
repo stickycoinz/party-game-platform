@@ -530,6 +530,7 @@ class GameClient {
     }
     
     showBuzzerQuestion(payload) {
+        console.log(`New question shown - resetting hasBuzzed for ${this.currentPlayer}`);
         this.hideAllBuzzerPhases();
         document.getElementById('questionPhase').classList.remove('hidden');
         
@@ -538,9 +539,11 @@ class GameClient {
         document.getElementById('buzzerTimer').textContent = payload.message;
         document.getElementById('buzzStatus').textContent = '';
         this.hasBuzzed = false;  // Reset for new question
+        console.log(`hasBuzzed reset to false for ${this.currentPlayer}`);
     }
     
     showBuzzerActive(payload) {
+        console.log(`Buzzer active - Player: ${this.currentPlayer}, hasBuzzed: ${this.hasBuzzed}, isHost: ${this.isHost}`);
         document.getElementById('buzzerSection').classList.remove('hidden');
         document.getElementById('buzzerTimer').textContent = payload.message;
         document.getElementById('buzzerButton').disabled = false;
@@ -554,6 +557,8 @@ class GameClient {
             document.getElementById('countdownNumber').textContent = payload.countdown_seconds;
             this.startCountdown(payload.countdown_seconds);
         }
+        
+        console.log('Buzzer button enabled for all players');
     }
     
     showPlayerBuzzed(payload) {
@@ -690,6 +695,8 @@ class GameClient {
     
     showNextQuestion(payload) {
         document.getElementById('buzzerTimer').textContent = payload.message;
+        this.hasBuzzed = false;  // Reset for next question
+        console.log('Next question - hasBuzzed reset to false');
     }
     
     showBuzzerResults(payload) {

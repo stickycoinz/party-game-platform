@@ -530,7 +530,7 @@ async def _start_buzzer_round(lobby_name: str, manager):
         await asyncio.sleep(3)
         
         # Activate buzzers with countdown
-        buzzer_timeout = 20  # 20 seconds for buzzing
+        buzzer_timeout = 10  # 10 seconds for buzzing
         await manager.broadcast_to_lobby(lobby_name, WSEvent(
             type=WSEventType.GAME_STATE,
             payload={
