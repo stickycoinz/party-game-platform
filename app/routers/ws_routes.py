@@ -280,13 +280,13 @@ async def handle_game_action(lobby_name: str, player_name: str, payload: dict):
     
     action = payload.get("action")
     
-            # Import game logic here to avoid circular imports
-        if lobby.current_game.game_type == "tap_gauntlet":
-            from app.routers.game_logic import handle_tap_gauntlet_action
-            await handle_tap_gauntlet_action(lobby_name, player_name, action, payload, manager)
-        elif lobby.current_game.game_type == "buzzer_trivia":
-            from app.routers.game_logic import handle_buzzer_trivia_action
-            await handle_buzzer_trivia_action(lobby_name, player_name, action, payload, manager)
+    # Import game logic here to avoid circular imports
+    if lobby.current_game.game_type == "tap_gauntlet":
+        from app.routers.game_logic import handle_tap_gauntlet_action
+        await handle_tap_gauntlet_action(lobby_name, player_name, action, payload, manager)
+    elif lobby.current_game.game_type == "buzzer_trivia":
+        from app.routers.game_logic import handle_buzzer_trivia_action
+        await handle_buzzer_trivia_action(lobby_name, player_name, action, payload, manager)
 
 # Utility function to broadcast lobby updates
 async def broadcast_lobby_update(lobby_name: str):
