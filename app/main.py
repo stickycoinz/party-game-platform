@@ -30,7 +30,13 @@ if os.path.exists(static_dir):
 
 @app.get("/")
 async def root():
-    """Root endpoint with basic info."""
+    """Root endpoint - redirect to game."""
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse(url="/static/index.html")
+
+@app.get("/info")
+async def info():
+    """Info endpoint with basic info."""
     return {
         "name": "Party Game Platform",
         "version": "1.0.0",
