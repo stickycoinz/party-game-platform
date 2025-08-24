@@ -14,6 +14,7 @@ class GameClient {
         this._isHost = false;
         this.hostToken = null;
         this.hasBuzzed = false;
+        this.currentBuzzers = []; // Store current round's buzzer data
         
         this.init();
     }
@@ -579,6 +580,9 @@ class GameClient {
         
         document.getElementById('buzzerTimer').textContent = payload.message;
         
+        // Store buzzer data for host controls
+        this.currentBuzzers = payload.buzzers || [];
+        
         const orderDiv = document.getElementById('buzzerOrder');
         orderDiv.innerHTML = '';
         
@@ -615,26 +619,32 @@ class GameClient {
             document.getElementById('hostAnswer').textContent = payload.correct_answer;
             document.getElementById('hostControls').classList.remove('hidden');
             
-            // Setup host controls based on buzzers
-            const lobby = this.currentLobby;
-            if (lobby && lobby.current_game && lobby.current_game.buzzers) {
-                this.setupHostControls(lobby.current_game.buzzers);
+            // Setup host controls based on stored buzzer data
+            if (this.currentBuzzers && this.currentBuzzers.length > 0) {
+                this.setupHostControls(this.currentBuzzers);
             }
         }
     }
     
     setupHostControls(buzzers) {
+        console.log('Setting up host controls with buzzers:', buzzers);
         const pointButtonsDiv = document.getElementById('pointButtons');
         pointButtonsDiv.innerHTML = '';
         
         if (buzzers && buzzers.length > 0) {
+            console.log(`Creating ${buzzers.length} point buttons`);
             buzzers.forEach(buzzer => {
                 const button = document.createElement('button');
                 button.textContent = `Give ${buzzer.player} 1 point`;
-                button.style.cssText = 'width: 100%; margin: 4px 0; padding: 8px; background: #48bb78; color: white;';
-                button.onclick = () => this.awardPoints(buzzer.player, 1);
+                button.style.cssText = 'width: 100%; margin: 4px 0; padding: 8px; background: #48bb78; color: white; border: none; border-radius: 4px; cursor: pointer;';
+                button.onclick = () => {
+                    console.log(`Awarding 1 point to ${buzzer.player}`);
+                    this.awardPoints(buzzer.player, 1);
+                };
                 pointButtonsDiv.appendChild(button);
             });
+        } else {
+            console.log('No buzzers found for host controls');
         }
     }
     
@@ -706,6 +716,7 @@ class GameClient {
     }
     
     awardPoints(playerName, points) {
+        console.log(`Sending award_points action: ${playerName} gets ${points} points`);
         this.sendWebSocketMessage('game_action', {
             action: 'award_points',
             player_name: playerName,
