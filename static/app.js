@@ -404,6 +404,8 @@ class GameClient {
             this.showVotingPhase(payload);
         } else if (payload.phase === 'results') {
             this.showResultsPhase(payload);
+        } else if (payload.phase === 'review') {
+            this.showReviewPhase(payload);
         }
         
         if (payload.submission_confirmed) {
@@ -525,6 +527,26 @@ class GameClient {
         document.getElementById('votingStatus').textContent = `Voting for ${playerName}...`;
     }
     
+    showReviewPhase(payload) {
+        this.hideAllTriviaPhases();
+        document.getElementById('resultsPhase').classList.remove('hidden');
+        
+        document.getElementById('triviaTimer').textContent = payload.message;
+        
+        const resultsDiv = document.getElementById('roundResults');
+        resultsDiv.innerHTML = '<h4>Submitted Questions:</h4>';
+        
+        payload.submissions.forEach(submission => {
+            const submissionDiv = document.createElement('div');
+            submissionDiv.className = 'result-item';
+            submissionDiv.innerHTML = `
+                <span>"${submission.question}"</span>
+                <span>${submission.player}</span>
+            `;
+            resultsDiv.appendChild(submissionDiv);
+        });
+    }
+    
     updateGameTick(payload) {
         if (payload.countdown !== undefined) {
             document.getElementById('gameTimer').textContent = 
@@ -560,25 +582,50 @@ class GameClient {
         this.showScreen('resultsScreen');
         
         const resultsEl = document.getElementById('gameResults');
-        resultsEl.innerHTML = '<h3>Final Scores</h3>';
         
-        results.scores.forEach(score => {
-            const resultEl = document.createElement('div');
-            resultEl.className = 'result-item';
-            if (score.position === 1) {
-                resultEl.classList.add('winner');
+        if (results.game_type === 'reverse_trivia') {
+            resultsEl.innerHTML = '<h3>🃏 Reverse Trivia Results</h3>';
+            
+            results.scores.forEach(score => {
+                const resultEl = document.createElement('div');
+                resultEl.className = 'result-item';
+                if (score.position === 1) {
+                    resultEl.classList.add('winner');
+                }
+                
+                resultEl.innerHTML = `
+                    <span>#${score.position} ${score.player_name}</span>
+                    <span>${score.score} votes</span>
+                `;
+                
+                resultsEl.appendChild(resultEl);
+            });
+            
+            if (results.winner) {
+                this.updateStatus(`🏆 ${results.winner} wins Reverse Trivia with ${results.scores[0].score} votes!`, 'success');
             }
+        } else {
+            // Tap Gauntlet results
+            resultsEl.innerHTML = '<h3>Final Scores</h3>';
             
-            resultEl.innerHTML = `
-                <span>#${score.position} ${score.player_name}</span>
-                <span>${score.score} taps</span>
-            `;
+            results.scores.forEach(score => {
+                const resultEl = document.createElement('div');
+                resultEl.className = 'result-item';
+                if (score.position === 1) {
+                    resultEl.classList.add('winner');
+                }
+                
+                resultEl.innerHTML = `
+                    <span>#${score.position} ${score.player_name}</span>
+                    <span>${score.score} taps</span>
+                `;
+                
+                resultsEl.appendChild(resultEl);
+            });
             
-            resultsEl.appendChild(resultEl);
-        });
-        
-        if (results.winner) {
-            this.updateStatus(`🏆 ${results.winner} wins with ${results.scores[0].score} taps!`, 'success');
+            if (results.winner) {
+                this.updateStatus(`🏆 ${results.winner} wins with ${results.scores[0].score} taps!`, 'success');
+            }
         }
     }
     

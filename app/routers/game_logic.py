@@ -478,7 +478,27 @@ async def _start_trivia_round(lobby_name: str, manager):
         # Wait 30 seconds for submissions
         await asyncio.sleep(30)
         
-        # For now, just end the game to test basic functionality
+        # Show what submissions we got, then end the game
+        lobby = await storage.get_lobby(lobby_name)
+        if lobby and isinstance(lobby.current_game, ReverseTriviaData):
+            game_data = lobby.current_game
+            
+            # Show submissions before ending
+            if game_data.submissions:
+                await manager.broadcast_to_lobby(lobby_name, WSEvent(
+                    type=WSEventType.GAME_STATE,
+                    payload={
+                        "phase": "review",
+                        "submissions": [
+                            {"player": player, "question": question}
+                            for player, question in game_data.submissions.items()
+                        ],
+                        "message": "Here's what everyone submitted!"
+                    },
+                    timestamp=time.time()
+                ))
+                await asyncio.sleep(3)  # Show for 3 seconds
+        
         await _end_reverse_trivia_game(lobby_name, manager)
         
     except Exception as e:
