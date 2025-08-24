@@ -128,12 +128,12 @@ async def start_game(
     from app.routers.ws_routes import manager
     
     try:
-                    if data.game_type == GameType.TAP_GAUNTLET:
-                success = await start_tap_gauntlet(lobby_name, lobby, manager)
-            elif data.game_type == GameType.BUZZER_TRIVIA:
-                success = await start_buzzer_trivia(lobby_name, lobby, manager)
-            else:
-                raise HTTPException(status_code=400, detail=f"Unknown game type: {data.game_type}")
+        if data.game_type == GameType.TAP_GAUNTLET:
+            success = await start_tap_gauntlet(lobby_name, lobby, manager)
+        elif data.game_type == GameType.BUZZER_TRIVIA:
+            success = await start_buzzer_trivia(lobby_name, lobby, manager)
+        else:
+            raise HTTPException(status_code=400, detail=f"Unknown game type: {data.game_type}")
             
     except Exception as e:
         print(f"Error starting {data.game_type}: {e}")
