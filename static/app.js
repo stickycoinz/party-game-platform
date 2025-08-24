@@ -13,6 +13,7 @@ class GameClient {
         this.lastTapTime = 0;
         this._isHost = false;
         this.hostToken = null;
+        this.hasBuzzed = false;
         
         this.init();
     }
@@ -377,7 +378,10 @@ class GameClient {
     setupTapGauntletUI(payload) {
         document.getElementById('gameTitle').textContent = 'Tap Gauntlet';
         document.getElementById('tapGameArea').classList.remove('hidden');
-        document.getElementById('triviaGameArea').classList.add('hidden');
+        
+        // Hide buzzer trivia elements completely
+        document.getElementById('buzzerGameArea').classList.add('hidden');
+        this.hideAllBuzzerPhases();
         
         this.tapCount = 0;
         document.getElementById('scoreDisplay').textContent = '0 taps';
@@ -393,6 +397,7 @@ class GameClient {
         
         document.getElementById('buzzerTimer').textContent = payload.message || 'Get ready...';
         this.hideAllBuzzerPhases();
+        this.hasBuzzed = false;  // Reset for new game
     }
     
     updateGameState(payload) {
@@ -500,6 +505,7 @@ class GameClient {
         document.getElementById('triviaQuestion').textContent = payload.question;
         document.getElementById('buzzerTimer').textContent = payload.message;
         document.getElementById('buzzStatus').textContent = '';
+        this.hasBuzzed = false;  // Reset for new question
     }
     
     showBuzzerActive(payload) {
@@ -552,10 +558,16 @@ class GameClient {
             });
         }
         
+        // Update countdown if provided
+        if (payload.countdown !== undefined) {
+            this.updateCountdown({countdown: payload.countdown, message: payload.message});
+        }
+        
         // Keep buzzer active for players who haven't buzzed yet
         if (payload.keep_buzzing && !payload.buzzers.some(b => b.player === this.currentPlayer)) {
             document.getElementById('buzzerButton').disabled = false;
             document.getElementById('buzzerButton').style.background = '#ff6b6b';
+            document.getElementById('buzzerSection').classList.remove('hidden');
         }
     }
     
@@ -686,6 +698,7 @@ class GameClient {
             timestamp: Date.now() / 1000
         });
         
+        this.hasBuzzed = true;  // Track that this player has buzzed
         document.getElementById('buzzStatus').textContent = 'Buzzing in...';
         document.getElementById('buzzerButton').disabled = true;
     }
@@ -738,6 +751,13 @@ class GameClient {
     
     updateCountdown(payload) {
         document.getElementById('buzzerTimer').textContent = payload.message;
+        
+        // Show countdown display if not visible
+        const countdownDisplay = document.getElementById('countdownDisplay');
+        if (countdownDisplay.classList.contains('hidden') && payload.countdown !== undefined) {
+            countdownDisplay.classList.remove('hidden');
+        }
+        
         const countdownEl = document.getElementById('countdownNumber');
         if (countdownEl && payload.countdown !== undefined) {
             countdownEl.textContent = payload.countdown;
@@ -749,6 +769,13 @@ class GameClient {
                 countdownEl.style.color = '#ff6b6b';
                 countdownEl.style.transform = 'scale(1)';
             }
+        }
+        
+        // Keep buzzer active if specified
+        if (payload.keep_buzzing && !this.hasBuzzed) {
+            document.getElementById('buzzerButton').disabled = false;
+            document.getElementById('buzzerButton').style.background = '#ff6b6b';
+            document.getElementById('buzzerSection').classList.remove('hidden');
         }
     }
     

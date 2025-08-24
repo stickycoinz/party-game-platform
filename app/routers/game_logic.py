@@ -521,30 +521,53 @@ async def _start_buzzer_round(lobby_name: str, manager):
         
         # Countdown with live updates
         start_time = time.time()
+        last_countdown = buzzer_timeout
+        
         while time.time() - start_time < buzzer_timeout:
-            remaining = buzzer_timeout - int(time.time() - start_time)
+            current_remaining = buzzer_timeout - int(time.time() - start_time)
             
-            # Send countdown update every second
-            if remaining != buzzer_timeout and remaining % 1 == 0:
+            # Send countdown update when it changes
+            if current_remaining != last_countdown and current_remaining >= 0:
                 await manager.broadcast_to_lobby(lobby_name, WSEvent(
                     type=WSEventType.GAME_STATE,
                     payload={
                         "phase": "buzzer_countdown",
-                        "countdown": remaining,
-                        "message": f"🔔 {remaining}s left to buzz in!"
+                        "countdown": current_remaining,
+                        "message": f"🔔 {current_remaining}s left to buzz in!" if current_remaining > 0 else "🔔 Time's up!",
+                        "keep_buzzing": True
                     },
                     timestamp=time.time()
                 ))
+                last_countdown = current_remaining
             
-            # Check if someone buzzed
+            # Check if someone buzzed - but don't end immediately, keep accepting buzzers
             lobby = await storage.get_lobby(lobby_name)
             if lobby and isinstance(lobby.current_game, BuzzerTriviaData):
                 game_data = lobby.current_game
+                # Just update live buzzer list, don't end the phase
                 if game_data.buzzers:
-                    # Someone buzzed! Show buzzer order and wait for host
-                    await _show_buzzer_order(lobby_name, manager)
-                    return
-            await asyncio.sleep(0.1)  # Check every 100ms
+                    await manager.broadcast_to_lobby(lobby_name, WSEvent(
+                        type=WSEventType.GAME_STATE,
+                        payload={
+                            "phase": "live_buzzers",
+                            "buzzer_player": game_data.buzzers[-1]["player"],  # Most recent buzzer
+                            "buzzers": game_data.buzzers,
+                            "message": f"🔔 {len(game_data.buzzers)} player(s) buzzed in! {current_remaining}s remaining",
+                            "keep_buzzing": True,
+                            "countdown": current_remaining
+                        },
+                        timestamp=time.time()
+                    ))
+            
+            await asyncio.sleep(0.5)  # Check every 500ms
+        
+        # Time's up! Now show final buzzer results
+        lobby = await storage.get_lobby(lobby_name)
+        if lobby and isinstance(lobby.current_game, BuzzerTriviaData):
+            game_data = lobby.current_game
+            if game_data.buzzers:
+                await _show_buzzer_order(lobby_name, manager)
+                return
         
         # Timeout - no one buzzed
         await manager.broadcast_to_lobby(lobby_name, WSEvent(
