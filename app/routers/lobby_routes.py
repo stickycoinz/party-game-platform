@@ -156,9 +156,9 @@ async def force_delete_lobby(
     if not lobby:
         raise lobby_not_found_error(lobby_name)
     
-    # Notify any remaining connected players
-    from app.routers.ws_routes import manager
+    # Notify any remaining connected players and disconnect them
     try:
+        from app.routers.ws_routes import manager
         await manager.broadcast_to_lobby(lobby_name, WSEvent(
             type=WSEventType.LOBBY_UPDATED,
             payload={"message": "Room has been deleted"},
@@ -176,6 +176,7 @@ async def force_delete_lobby(
                     pass
     except Exception as e:
         print(f"Error notifying players during lobby deletion: {e}")
+        # Continue anyway - just delete the lobby
     
     # Delete the lobby
     await storage.delete_lobby(lobby_name)
@@ -186,47 +187,55 @@ async def force_delete_lobby(
 @router.get("/admin/list")
 async def list_all_lobbies_admin(storage: StorageBackend = Depends(get_storage)) -> dict:
     """Admin endpoint to list all lobbies with connection info."""
-    from app.routers.ws_routes import manager
-    
-    lobbies = await storage.list_lobbies()
-    lobby_info = []
-    
-    for lobby_data in lobbies:
-        lobby_name = lobby_data.lobby_name
-        connected_count = len(manager.active_connections.get(lobby_name, []))
+    try:
+        from app.routers.ws_routes import manager
         
-        lobby_info.append({
-            "name": lobby_name,
-            "players": [p.name for p in lobby_data.players],
-            "player_count": len(lobby_data.players),
-            "connected_count": connected_count,
-            "game_state": lobby_data.game_state,
-            "current_game": lobby_data.current_game.game_type if lobby_data.current_game else None,
-            "host": lobby_data.host,
-            "needs_cleanup": connected_count == 0 or len(lobby_data.players) == 0
-        })
-    
-    return {
-        "lobbies": lobby_info,
-        "total_count": len(lobby_info)
-    }
+        lobbies = await storage.list_lobbies()
+        lobby_info = []
+        
+        for lobby_data in lobbies:
+            lobby_name = lobby_data.lobby_name
+            connected_count = len(manager.active_connections.get(lobby_name, []))
+            
+            lobby_info.append({
+                "name": lobby_name,
+                "players": [p.name for p in lobby_data.players],
+                "player_count": len(lobby_data.players),
+                "connected_count": connected_count,
+                "game_state": lobby_data.game_state,
+                "current_game": lobby_data.current_game.game_type if lobby_data.current_game else None,
+                "host": lobby_data.host,
+                "needs_cleanup": connected_count == 0 or len(lobby_data.players) == 0
+            })
+        
+        return {
+            "lobbies": lobby_info,
+            "total_count": len(lobby_info)
+        }
+    except Exception as e:
+        print(f"Error in admin list: {e}")
+        raise HTTPException(status_code=500, detail=f"Admin list error: {str(e)}")
 
 @router.post("/admin/cleanup")
 async def cleanup_empty_lobbies(storage: StorageBackend = Depends(get_storage)) -> dict:
     """Cleanup all empty lobbies."""
-    from app.routers.ws_routes import manager
-    
-    # Run cleanup
-    await manager.cleanup_all_empty_lobbies()
-    
-    # Get updated count
-    remaining_lobbies = await storage.list_lobbies()
-    
-    return {
-        "ok": True,
-        "message": "Cleanup completed",
-        "remaining_lobbies": len(remaining_lobbies)
-    }
+    try:
+        from app.routers.ws_routes import manager
+        
+        # Run cleanup
+        await manager.cleanup_all_empty_lobbies()
+        
+        # Get updated count
+        remaining_lobbies = await storage.list_lobbies()
+        
+        return {
+            "ok": True,
+            "message": "Cleanup completed",
+            "remaining_lobbies": len(remaining_lobbies)
+        }
+    except Exception as e:
+        print(f"Error in cleanup: {e}")
+        raise HTTPException(status_code=500, detail=f"Cleanup error: {str(e)}")
 
 @router.get("/{lobby_name}", response_model=Lobby)
 async def get_lobby(lobby_name: str, storage: StorageBackend = Depends(get_storage)) -> Lobby:

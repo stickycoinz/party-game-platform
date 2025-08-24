@@ -78,6 +78,11 @@
             background: rgba(245, 101, 101, 0.1);
         }
         
+        .room-card.active {
+            border-left-color: #48bb78;
+            background: rgba(72, 187, 120, 0.1);
+        }
+        
         .room-header {
             display: flex;
             justify-content: between;
@@ -132,6 +137,7 @@
         <div class="controls">
             <button class="refresh-btn" onclick="loadRooms()">🔄 Refresh</button>
             <button class="cleanup-btn" onclick="cleanupRooms()">🧹 Cleanup Empty Rooms</button>
+            <button class="cleanup-btn" onclick="deleteAllRooms()">🗑️ Delete ALL Rooms</button>
         </div>
         
         <div class="stats" id="stats">
@@ -148,11 +154,26 @@
 
         async function apiCall(endpoint, method = 'GET') {
             try {
+                console.log(`API Call: ${method} ${API_BASE}${endpoint}`);
                 const response = await fetch(`${API_BASE}${endpoint}`, { method });
-                return await response.json();
+                
+                console.log(`Response Status: ${response.status}`);
+                const text = await response.text();
+                console.log(`Response Text: ${text}`);
+                
+                if (!response.ok) {
+                    return { error: `HTTP ${response.status}: ${text}` };
+                }
+                
+                try {
+                    return JSON.parse(text);
+                } catch (parseError) {
+                    console.error('JSON Parse Error:', parseError);
+                    return { error: `Invalid JSON response: ${text.substring(0, 100)}...` };
+                }
             } catch (error) {
-                console.error('API Error:', error);
-                return { error: error.message };
+                console.error('Network Error:', error);
+                return { error: `Network error: ${error.message}` };
             }
         }
 
@@ -182,8 +203,10 @@
                 return;
             }
 
-            const roomsHtml = data.lobbies.map(room => `
-                <div class="room-card ${room.needs_cleanup ? 'needs-cleanup' : ''}">
+            const roomsHtml = data.lobbies.map(room => {
+                const roomClass = room.needs_cleanup ? 'needs-cleanup' : (room.connected_count > 0 ? 'active' : '');
+                return `
+                <div class="room-card ${roomClass}">
                     <div class="room-header">
                         <div class="room-name">${room.name}</div>
                         <div class="room-status">${room.game_state}</div>
@@ -194,9 +217,10 @@
                         <div><strong>Game:</strong> ${room.current_game || 'None'}</div>
                         <div><strong>Players:</strong> ${room.players.join(', ') || 'None'}</div>
                     </div>
-                    ${room.needs_cleanup ? '<button class="delete-btn" onclick="deleteRoom(\'' + room.name + '\')">🗑️ Delete Room</button>' : ''}
+                    <button class="delete-btn" onclick="deleteRoom('${room.name}')">🗑️ Delete Room</button>
                 </div>
-            `).join('');
+            `;
+            }).join('');
 
             document.getElementById('roomList').innerHTML = roomsHtml;
         }
@@ -225,6 +249,34 @@
                 alert(`Room "${roomName}" deleted successfully!`);
                 loadRooms();
             }
+        }
+
+        async function deleteAllRooms() {
+            if (!confirm('⚠️ DELETE ALL ROOMS? This will kick out all players and delete every room!')) return;
+            if (!confirm('Are you ABSOLUTELY sure? This cannot be undone!')) return;
+
+            // Get current room list
+            const data = await apiCall('/lobby/admin/list');
+            if (data.error || !data.lobbies) {
+                alert(`Error getting room list: ${data.error}`);
+                return;
+            }
+
+            let deletedCount = 0;
+            let errorCount = 0;
+
+            // Delete each room
+            for (const room of data.lobbies) {
+                const result = await apiCall(`/lobby/${room.name}`, 'DELETE');
+                if (result.error) {
+                    errorCount++;
+                } else {
+                    deletedCount++;
+                }
+            }
+
+            alert(`Deleted ${deletedCount} rooms. ${errorCount} errors.`);
+            loadRooms();
         }
 
         // Load rooms on page load
