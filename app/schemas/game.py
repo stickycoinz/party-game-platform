@@ -189,6 +189,10 @@ class NextQuestionAction(BaseModel):
     action: Literal["next_question"] = "next_question"
     timestamp: float
 
+class EndGameAction(BaseModel):
+    action: Literal["end_game"] = "end_game"
+    timestamp: float
+
 # Start Game Request
 class StartGameRequest(BaseModel):
     game_type: GameType

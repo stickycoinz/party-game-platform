@@ -5,7 +5,7 @@ from typing import Dict, List
 from app.schemas.game import (
     TapGauntletData, BuzzerTriviaData, GameState, GameType, GameResults, PlayerScore,
     WSEvent, WSEventType, TapAction, TapResponseAction, VoteCategoryAction, BuzzerAction, 
-    AwardPointsAction, NextQuestionAction
+    AwardPointsAction, NextQuestionAction, EndGameAction
 )
 from app.schemas.lobby import Lobby
 from app.utils.storage import get_storage
@@ -507,19 +507,35 @@ async def _start_buzzer_round(lobby_name: str, manager):
         # Wait 3 seconds for players to read the question
         await asyncio.sleep(3)
         
-        # Activate buzzers
+        # Activate buzzers with countdown
+        buzzer_timeout = 20  # 20 seconds for buzzing
         await manager.broadcast_to_lobby(lobby_name, WSEvent(
             type=WSEventType.GAME_STATE,
             payload={
                 "phase": "buzzer_active",
                 "message": "🔔 BUZZERS ACTIVE! First to buzz gets to answer!",
+                "countdown_seconds": buzzer_timeout
             },
             timestamp=time.time()
         ))
         
-        # Wait for buzzers or timeout after 30 seconds
+        # Countdown with live updates
         start_time = time.time()
-        while time.time() - start_time < 30:
+        while time.time() - start_time < buzzer_timeout:
+            remaining = buzzer_timeout - int(time.time() - start_time)
+            
+            # Send countdown update every second
+            if remaining != buzzer_timeout and remaining % 1 == 0:
+                await manager.broadcast_to_lobby(lobby_name, WSEvent(
+                    type=WSEventType.GAME_STATE,
+                    payload={
+                        "phase": "buzzer_countdown",
+                        "countdown": remaining,
+                        "message": f"🔔 {remaining}s left to buzz in!"
+                    },
+                    timestamp=time.time()
+                ))
+            
             # Check if someone buzzed
             lobby = await storage.get_lobby(lobby_name)
             if lobby and isinstance(lobby.current_game, BuzzerTriviaData):
@@ -802,3 +818,8 @@ async def handle_buzzer_trivia_action(lobby_name: str, player_name: str, action:
         if player_name == lobby.host:
             await asyncio.sleep(2)  # Brief pause before next question
             await _start_next_question(lobby_name, manager)
+    
+    elif action == "end_game":
+        # Only the host can end the game
+        if player_name == lobby.host:
+            await _end_buzzer_trivia_game(lobby_name, manager)

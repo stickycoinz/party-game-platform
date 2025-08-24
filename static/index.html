@@ -362,6 +362,11 @@
             <div class="game-area hidden" id="buzzerGameArea">
                 <div class="timer" id="buzzerTimer">Get Ready...</div>
                 
+                <!-- Countdown Display -->
+                <div id="countdownDisplay" class="hidden" style="font-size: 48px; font-weight: bold; color: #ff6b6b; text-align: center; margin: 20px 0;">
+                    <span id="countdownNumber">10</span>
+                </div>
+                
                 <!-- Category Voting Phase -->
                 <div id="categoryVotingPhase" class="hidden">
                     <h3>Vote for a Trivia Category!</h3>
@@ -402,7 +407,10 @@
                     <div id="hostControls" class="hidden">
                         <h4 style="margin-top: 20px;">🎯 Host Controls:</h4>
                         <div id="pointButtons" style="margin: 12px 0;"></div>
-                        <button onclick="nextQuestion()" style="margin-top: 12px; background: #4299e1;">Next Question</button>
+                        <div style="display: flex; gap: 12px; margin-top: 12px;">
+                            <button onclick="nextQuestion()" style="background: #4299e1; flex: 1;">Next Question</button>
+                            <button onclick="endGame()" style="background: #e53e3e; flex: 1;">End Game</button>
+                        </div>
                     </div>
                 </div>
                 
@@ -422,7 +430,7 @@
                 <!-- Results will be populated here -->
             </div>
             
-            <button onclick="backToLobby()">Back to Lobby</button>
+            <button onclick="backToLobby()" style="margin-top: 20px; background: #4299e1; width: 100%;">Back to Lobby</button>
         </div>
         
         <div class="status info" id="statusMessage"></div>

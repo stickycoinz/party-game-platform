@@ -431,6 +431,8 @@ class GameClient {
             this.showPlayerBuzzed(payload);
         } else if (payload.phase === 'live_buzzers') {
             this.showLiveBuzzers(payload);
+        } else if (payload.phase === 'buzzer_countdown') {
+            this.updateCountdown(payload);
         } else if (payload.phase === 'host_judging') {
             this.showHostJudging(payload);
         } else if (payload.phase === 'host_answer') {
@@ -463,6 +465,7 @@ class GameClient {
         document.getElementById('buzzerSection').classList.add('hidden');
         document.getElementById('liveBuzzerList').classList.add('hidden');
         document.getElementById('hostAnswerSection').classList.add('hidden');
+        document.getElementById('countdownDisplay').classList.add('hidden');
     }
     
     showCategoryVotingPhase(payload) {
@@ -504,6 +507,13 @@ class GameClient {
         document.getElementById('buzzerTimer').textContent = payload.message;
         document.getElementById('buzzerButton').disabled = false;
         document.getElementById('buzzerButton').style.background = '#ff6b6b';
+        
+        // Show countdown if provided
+        if (payload.countdown_seconds) {
+            document.getElementById('countdownDisplay').classList.remove('hidden');
+            document.getElementById('countdownNumber').textContent = payload.countdown_seconds;
+            this.startCountdown(payload.countdown_seconds);
+        }
     }
     
     showPlayerBuzzed(payload) {
@@ -696,6 +706,52 @@ class GameClient {
         });
     }
     
+    endGame() {
+        if (confirm('Are you sure you want to end the game and return to lobby?')) {
+            this.sendWebSocketMessage('game_action', {
+                action: 'end_game',
+                timestamp: Date.now() / 1000
+            });
+        }
+    }
+    
+    startCountdown(seconds) {
+        // Visual countdown display
+        this.countdownInterval = setInterval(() => {
+            const countdownEl = document.getElementById('countdownNumber');
+            if (countdownEl) {
+                const current = parseInt(countdownEl.textContent) - 1;
+                if (current > 0) {
+                    countdownEl.textContent = current;
+                    // Change color as time runs out
+                    if (current <= 5) {
+                        countdownEl.style.color = '#e53e3e';
+                        countdownEl.style.transform = 'scale(1.2)';
+                    }
+                } else {
+                    clearInterval(this.countdownInterval);
+                    document.getElementById('countdownDisplay').classList.add('hidden');
+                }
+            }
+        }, 1000);
+    }
+    
+    updateCountdown(payload) {
+        document.getElementById('buzzerTimer').textContent = payload.message;
+        const countdownEl = document.getElementById('countdownNumber');
+        if (countdownEl && payload.countdown !== undefined) {
+            countdownEl.textContent = payload.countdown;
+            // Update color based on remaining time
+            if (payload.countdown <= 5) {
+                countdownEl.style.color = '#e53e3e';
+                countdownEl.style.transform = 'scale(1.2)';
+            } else {
+                countdownEl.style.color = '#ff6b6b';
+                countdownEl.style.transform = 'scale(1)';
+            }
+        }
+    }
+    
     get isHost() {
         return this._isHost && this.currentLobby && this.currentLobby.host === this.currentPlayer;
     }
@@ -862,6 +918,10 @@ function buzz() {
 
 function nextQuestion() {
     window.gameClient.nextQuestion();
+}
+
+function endGame() {
+    window.gameClient.endGame();
 }
 
 // Initialize the game client immediately
