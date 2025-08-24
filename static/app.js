@@ -11,13 +11,22 @@ class GameClient {
         this.tapCount = 0;
         this.gameTimer = null;
         this.lastTapTime = 0;
-        this.isHost = false;
+        this._isHost = false;
         this.hostToken = null;
         
         this.init();
     }
     
     init() {
+        // Only initialize if DOM is ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', () => this.initDOM());
+        } else {
+            this.initDOM();
+        }
+    }
+    
+    initDOM() {
         this.updateStatus('Welcome! Enter your name to get started.');
         this.setupEventListeners();
     }
@@ -175,16 +184,20 @@ class GameClient {
     
     updateStatus(message, type = 'info') {
         const statusEl = document.getElementById('statusMessage');
-        statusEl.textContent = message;
-        statusEl.className = `status ${type}`;
-        
-        // Auto-clear non-error messages
-        if (type !== 'error') {
-            setTimeout(() => {
-                if (statusEl.textContent === message) {
-                    statusEl.textContent = '';
-                }
-            }, 5000);
+        if (statusEl) {
+            statusEl.textContent = message;
+            statusEl.className = `status ${type}`;
+            
+            // Auto-clear non-error messages
+            if (type !== 'error') {
+                setTimeout(() => {
+                    if (statusEl.textContent === message) {
+                        statusEl.textContent = '';
+                    }
+                }, 5000);
+            }
+        } else {
+            console.log(`Status: ${message} (${type})`);
         }
     }
     
@@ -280,7 +293,7 @@ class GameClient {
             console.log('Lobby created successfully:', lobby);
             
             this.currentPlayer = playerName;
-            this.isHost = true;
+            this._isHost = true;
             this.hostToken = lobby.host_token;
             this.connectWebSocket(lobbyName, playerName);
             this.showScreen('lobbyScreen');
@@ -309,7 +322,7 @@ class GameClient {
             });
             
             this.currentPlayer = playerName;
-            this.isHost = false;
+            this._isHost = false;
             this.connectWebSocket(lobbyName, playerName);
             this.showScreen('lobbyScreen');
             this.updateLobbyDisplay(lobby);
@@ -637,7 +650,7 @@ class GameClient {
     }
     
     get isHost() {
-        return this.currentLobby && this.currentLobby.host === this.currentPlayer;
+        return this._isHost && this.currentLobby && this.currentLobby.host === this.currentPlayer;
     }
     
     updateGameTick(payload) {
@@ -765,7 +778,11 @@ function showJoinLobby() {
 }
 
 function createLobby() {
-    window.gameClient.createLobby();
+    if (window.gameClient) {
+        window.gameClient.createLobby();
+    } else {
+        console.error('Game client not initialized');
+    }
 }
 
 function joinLobby() {
@@ -800,7 +817,12 @@ function nextQuestion() {
     window.gameClient.nextQuestion();
 }
 
-// Initialize the game client when page loads
+// Initialize the game client immediately
+window.gameClient = new GameClient();
+
+// Also ensure it's available when DOM loads
 window.addEventListener('DOMContentLoaded', () => {
-    window.gameClient = new GameClient();
+    if (!window.gameClient) {
+        window.gameClient = new GameClient();
+    }
 });
