@@ -4,7 +4,7 @@ A lightweight, browser-based party game platform where players create rooms, joi
 
 ## 🚀 Features
 
-### ✅ Sprint 1 (Completed)
+### ✅ Sprint 1 (Completed - Deployed Live!)
 - **REST API**: Create, join, ready up, and start games
 - **WebSocket Real-time**: Live lobby updates and game state synchronization
 - **Tap Gauntlet Game**: 10-second tapping competition with anti-cheat measures
