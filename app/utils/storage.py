@@ -26,6 +26,11 @@ class StorageBackend(ABC):
     async def get_all_lobbies(self) -> Dict[str, Lobby]:
         """Get all active lobbies."""
         pass
+    
+    @abstractmethod
+    async def list_lobbies(self) -> List[Lobby]:
+        """Get all active lobbies as a list."""
+        pass
 
 class MemoryStorage(StorageBackend):
     """In-memory storage for development."""
@@ -52,6 +57,11 @@ class MemoryStorage(StorageBackend):
     async def get_all_lobbies(self) -> Dict[str, Lobby]:
         async with self._lock:
             return self._lobbies.copy()
+    
+    async def list_lobbies(self) -> List[Lobby]:
+        """Get all active lobbies as a list."""
+        async with self._lock:
+            return list(self._lobbies.values())
     
     async def cleanup_old_lobbies(self, max_age_seconds: int = 3600) -> None:
         """Remove lobbies older than max_age_seconds."""
