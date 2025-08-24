@@ -571,19 +571,26 @@ class GameClient {
     
     showLiveBuzzers(payload) {
         console.log('Live buzzers update:', payload.buzzers);
+        console.log('Showing live buzzer list...');
         document.getElementById('buzzerTimer').textContent = payload.message;
         
         // Show live buzzer list but keep buzzer active for others
-        document.getElementById('liveBuzzerList').classList.remove('hidden');
+        const liveBuzzerList = document.getElementById('liveBuzzerList');
+        liveBuzzerList.classList.remove('hidden');
+        console.log('Live buzzer list element:', liveBuzzerList, 'visible:', !liveBuzzerList.classList.contains('hidden'));
         
         const liveBuzzersDiv = document.getElementById('liveBuzzers');
         liveBuzzersDiv.innerHTML = '';
+        console.log('Cleared buzzer list content');
         
         if (payload.buzzers && payload.buzzers.length > 0) {
+            console.log(`Processing ${payload.buzzers.length} buzzers`);
             // Sort by time (earliest first) to get correct order
             const sortedBuzzers = [...payload.buzzers].sort((a, b) => a.time - b.time);
+            console.log('Sorted buzzers:', sortedBuzzers);
             
             sortedBuzzers.forEach((buzzer, index) => {
+                console.log(`Creating buzzer item for ${buzzer.player} at position ${index + 1}`);
                 const buzzerDiv = document.createElement('div');
                 buzzerDiv.className = 'result-item';
                 const position = index + 1; // Use sorted position for live display
@@ -596,7 +603,11 @@ class GameClient {
                     <span>${timeDisplay}</span>
                 `;
                 liveBuzzersDiv.appendChild(buzzerDiv);
+                console.log('Added buzzer div:', buzzerDiv);
             });
+            console.log('Final buzzer list HTML:', liveBuzzersDiv.innerHTML);
+        } else {
+            console.log('No buzzers to display');
         }
         
         // Update countdown if provided
