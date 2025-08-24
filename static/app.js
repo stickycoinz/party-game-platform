@@ -443,7 +443,9 @@ class GameClient {
         } else if (payload.phase === 'player_buzzed') {
             this.showPlayerBuzzed(payload);
         } else if (payload.phase === 'live_buzzers') {
+            console.log(`LIVE BUZZERS EVENT - Player: ${this.currentPlayer}, hasBuzzed before: ${this.hasBuzzed}`);
             this.showLiveBuzzers(payload);
+            console.log(`LIVE BUZZERS EVENT - Player: ${this.currentPlayer}, hasBuzzed after: ${this.hasBuzzed}`);
         } else if (payload.phase === 'buzzer_countdown') {
             this.updateCountdown(payload);
         } else if (payload.phase === 'host_judging') {
@@ -537,7 +539,12 @@ class GameClient {
     }
     
     showBuzzerQuestion(payload) {
-        console.log(`New question shown - resetting hasBuzzed for ${this.currentPlayer}`);
+        console.log(`showBuzzerQuestion - Player: ${this.currentPlayer}, hasBuzzed before: ${this.hasBuzzed}`);
+        
+        // CRITICAL: Force reset hasBuzzed state
+        this.hasBuzzed = false;
+        console.log(`FORCED hasBuzzed reset to FALSE for ${this.currentPlayer}`);
+        
         this.hideAllBuzzerPhases();
         document.getElementById('questionPhase').classList.remove('hidden');
         
@@ -545,8 +552,8 @@ class GameClient {
         document.getElementById('triviaQuestion').textContent = payload.question;
         document.getElementById('buzzerTimer').textContent = payload.message;
         document.getElementById('buzzStatus').textContent = '';
-        this.hasBuzzed = false;  // Reset for new question
-        console.log(`hasBuzzed reset to false for ${this.currentPlayer}`);
+        
+        console.log(`showBuzzerQuestion complete - ${this.currentPlayer} hasBuzzed: ${this.hasBuzzed}`);
     }
     
     showBuzzerActive(payload) {
@@ -717,9 +724,24 @@ class GameClient {
     }
     
     showNextQuestion(payload) {
-        document.getElementById('buzzerTimer').textContent = payload.message;
-        this.hasBuzzed = false;  // Reset for next question
-        console.log('Next question - hasBuzzed reset to false');
+        console.log('showNextQuestion called - payload:', payload);
+        
+        // Reset hasBuzzed state first
+        this.hasBuzzed = false;
+        console.log('hasBuzzed reset to false for next question');
+        
+        // Hide current phases and show the new question
+        this.hideAllBuzzerPhases();
+        
+        // Update the question if provided
+        if (payload.question) {
+            document.getElementById('triviaQuestion').textContent = payload.question;
+        }
+        
+        // Show the new question UI
+        this.showBuzzerQuestion(payload);
+        
+        console.log('Next question setup complete');
     }
     
     showBuzzerResults(payload) {
@@ -782,24 +804,32 @@ class GameClient {
     }
     
     buzz() {
-        console.log(`${this.currentPlayer} (host: ${this.isHost}) attempting to buzz`);
-        console.log('hasBuzzed status before buzz:', this.hasBuzzed);
+        console.log(`==== BUZZ ATTEMPT (${Date.now()}) ====`);
+        console.log(`Player: ${this.currentPlayer}`);
+        console.log(`Is Host: ${this.isHost}`);
+        console.log(`hasBuzzed before check: ${this.hasBuzzed}`);
+        console.log(`WebSocket state: ${this.websocket ? this.websocket.readyState : 'no websocket'}`);
         
         if (this.hasBuzzed) {
-            console.log('Buzz blocked - already buzzed');
+            console.log('❌ BUZZ BLOCKED - already buzzed (this should not happen for host after reset)');
+            console.log('CURRENT hasBuzzed value:', this.hasBuzzed);
             return;
         }
         
-        console.log('Sending buzz WebSocket message...');
+        console.log('✅ BUZZ ALLOWED - setting hasBuzzed to true and sending');
+        this.hasBuzzed = true;  // Set immediately to prevent double-clicks
+        
+        console.log('📡 Sending buzz WebSocket message...');
         this.sendWebSocketMessage('game_action', {
             action: 'buzz',
+            player: this.currentPlayer,
             timestamp: Date.now() / 1000
         });
         
-        this.hasBuzzed = true;  // Track that this player has buzzed
         document.getElementById('buzzStatus').textContent = 'Buzzing in...';
         document.getElementById('buzzerButton').disabled = true;
-        console.log('Buzz sent and button disabled');
+        console.log('🔘 Buzz sent and button disabled');
+        console.log(`==== BUZZ COMPLETE ====`);
     }
     
     awardPoints(playerName, points) {

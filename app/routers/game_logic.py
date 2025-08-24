@@ -741,6 +741,8 @@ async def _start_next_question(lobby_name: str, manager):
         payload={
             "phase": "next_question",
             "round": game_data.current_round,
+            "category": game_data.selected_category,
+            "question": game_data.current_question,
             "message": f"Round {game_data.current_round} coming up!",
         },
         timestamp=time.time()
