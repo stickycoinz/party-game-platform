@@ -136,7 +136,7 @@ async def start_game(
             raise HTTPException(status_code=400, detail=f"Unknown game type: {data.game_type}")
             
     except Exception as e:
-        print(f"Error starting {data.game_type}: {e}")
+        print(f"Error starting game {data.game_type}: {e}")
         raise HTTPException(status_code=500, detail=f"Error starting game: {str(e)}")
     
     if not success:
