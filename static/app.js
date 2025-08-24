@@ -570,6 +570,7 @@ class GameClient {
     }
     
     showLiveBuzzers(payload) {
+        console.log('Live buzzers update:', payload.buzzers);
         document.getElementById('buzzerTimer').textContent = payload.message;
         
         // Show live buzzer list but keep buzzer active for others
@@ -579,13 +580,14 @@ class GameClient {
         liveBuzzersDiv.innerHTML = '';
         
         if (payload.buzzers && payload.buzzers.length > 0) {
-            // Sort by time (earliest first)
+            // Sort by time (earliest first) to get correct order
             const sortedBuzzers = [...payload.buzzers].sort((a, b) => a.time - b.time);
             
             sortedBuzzers.forEach((buzzer, index) => {
                 const buzzerDiv = document.createElement('div');
                 buzzerDiv.className = 'result-item';
-                const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `${index + 1}.`;
+                const position = index + 1; // Use sorted position for live display
+                const medal = position === 1 ? '🥇' : position === 2 ? '🥈' : position === 3 ? '🥉' : `${position}.`;
                 const timeMs = Date.now() - (buzzer.time * 1000);
                 const timeDisplay = timeMs < 1000 ? 'just now' : `${(timeMs / 1000).toFixed(1)}s ago`;
                 
@@ -611,6 +613,7 @@ class GameClient {
     }
     
     showHostJudging(payload) {
+        console.log('Host judging - final buzzers:', payload.buzzers);
         this.hideAllBuzzerPhases();
         document.getElementById('hostJudgingPhase').classList.remove('hidden');
         
@@ -633,13 +636,15 @@ class GameClient {
             const buzzersDiv = document.createElement('div');
             buzzersDiv.innerHTML = '<h4>Final Buzzer Order:</h4>';
             
-            payload.buzzers.forEach((buzzer, index) => {
+            payload.buzzers.forEach((buzzer) => {
                 const buzzerDiv = document.createElement('div');
                 buzzerDiv.className = 'result-item';
-                const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `${index + 1}.`;
+                const position = buzzer.position || 1;
+                const medal = position === 1 ? '🥇' : position === 2 ? '🥈' : position === 3 ? '🥉' : `${position}.`;
+                const suffix = position === 1 ? 'st' : position === 2 ? 'nd' : position === 3 ? 'rd' : 'th';
                 buzzerDiv.innerHTML = `
                     <span>${medal} ${buzzer.player}</span>
-                    <span>Buzzed ${index + 1}${index === 0 ? 'st' : index === 1 ? 'nd' : index === 2 ? 'rd' : 'th'}</span>
+                    <span>Buzzed ${position}${suffix}</span>
                 `;
                 buzzersDiv.appendChild(buzzerDiv);
             });
