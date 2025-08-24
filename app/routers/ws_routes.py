@@ -46,12 +46,33 @@ class ConnectionManager:
             
             del self.connection_info[websocket]
             
-            # Notify others that player left
-            await self.broadcast_to_lobby(lobby_name, WSEvent(
-                type=WSEventType.PLAYER_LEFT,
-                payload={"player_name": player_name},
-                timestamp=time.time()
-            ))
+            # Remove player from lobby data
+            storage = await get_storage()
+            lobby = await storage.get_lobby(lobby_name)
+            if lobby:
+                # Remove the player from the lobby
+                lobby.players = [p for p in lobby.players if p.name != player_name]
+                
+                # If the leaving player was the host, assign new host
+                if lobby.host == player_name and lobby.players:
+                    lobby.host = lobby.players[0].name
+                    print(f"Host changed to {lobby.host} after {player_name} left")
+                
+                await storage.set_lobby(lobby_name, lobby)
+                
+                # Notify others that player left with updated lobby
+                await self.broadcast_to_lobby(lobby_name, WSEvent(
+                    type=WSEventType.PLAYER_LEFT,
+                    payload={"player_name": player_name},
+                    timestamp=time.time()
+                ))
+                
+                # Send updated lobby state
+                await self.broadcast_to_lobby(lobby_name, WSEvent(
+                    type=WSEventType.LOBBY_UPDATED,
+                    payload={"lobby": lobby.model_dump()},
+                    timestamp=time.time()
+                ))
             
             # Clean up empty lobbies
             await self._cleanup_empty_lobby(lobby_name)
@@ -199,6 +220,34 @@ async def handle_websocket_message(websocket: WebSocket, lobby_name: str, player
             payload={"error": str(e)},
             timestamp=time.time()
         ).model_dump_json())
+
+async def cleanup_stale_connections():
+    """Clean up connections that might have failed to disconnect properly."""
+    storage = await get_storage()
+    all_lobbies = await storage.get_all_lobbies()
+    
+    for lobby_name, lobby in all_lobbies.items():
+        if lobby_name in manager.active_connections:
+            # Get connected player names
+            connected_players = {
+                info[1] for info in manager.connection_info.values() 
+                if info[0] == lobby_name
+            }
+            
+            # Remove players who are in lobby but not connected
+            original_count = len(lobby.players)
+            lobby.players = [p for p in lobby.players if p.name in connected_players]
+            
+            if len(lobby.players) != original_count:
+                print(f"Cleaned up {original_count - len(lobby.players)} stale players from {lobby_name}")
+                await storage.set_lobby(lobby_name, lobby)
+                
+                # Broadcast updated lobby
+                await manager.broadcast_to_lobby(lobby_name, WSEvent(
+                    type=WSEventType.LOBBY_UPDATED,
+                    payload={"lobby": lobby.model_dump()},
+                    timestamp=time.time()
+                ))
 
 async def handle_player_ready(lobby_name: str, player_name: str, is_ready: bool):
     """Handle player ready/unready state changes."""
