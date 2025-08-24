@@ -295,64 +295,135 @@ async def _handle_tap_response(lobby_name: str, player_name: str, prompt_id: str
 
 # Trivia Categories
 TRIVIA_CATEGORIES = [
+    "Music & Pop Culture",
     "Movies & TV",
     "Sports",
-    "Science",
-    "History",
-    "Food & Drink",
-    "Music",
-    "Geography",
-    "Animals"
+    "General Knowledge",
+    "Science & Medical",
+    "Animals",
+    "Geography"
 ]
 
 # Trivia Questions Bank
 TRIVIA_QUESTIONS = {
+    "Music & Pop Culture": [
+        {"question": "Who sang 'Margaritaville' in 1977?", "answer": "Jimmy Buffett"},
+        {"question": "Which Beatle was the first to release a solo album?", "answer": "George Harrison"},
+        {"question": "In what year did MTV first go on the air?", "answer": "1981"},
+        {"question": "What was Elvis Presley's middle name?", "answer": "Aaron"},
+        {"question": "Who was the original host of American Bandstand?", "answer": "Bob Horn"},
+        {"question": "Who was the lead singer of The Doors?", "answer": "Jim Morrison"},
+        {"question": "Which pop star sang 'Like a Virgin' in 1984?", "answer": "Madonna"},
+        {"question": "What year did the Woodstock music festival take place?", "answer": "1969"},
+        {"question": "Who was known as the 'Man in Black'?", "answer": "Johnny Cash"},
+        {"question": "What was the first music video played on MTV?", "answer": "Video Killed the Radio Star by The Buggles"},
+        {"question": "What was the first album to sell over 30 million copies worldwide?", "answer": "Thriller by Michael Jackson"},
+        {"question": "Who wrote the song 'Me and Bobby McGee'?", "answer": "Kris Kristofferson"},
+        {"question": "Which guitarist was nicknamed 'Slowhand'?", "answer": "Eric Clapton"},
+        {"question": "What city was the original Motown headquarters located in?", "answer": "Detroit, Michigan"},
+        {"question": "Who was the first woman inducted into the Rock & Roll Hall of Fame?", "answer": "Aretha Franklin"},
+    ],
     "Movies & TV": [
-        {"question": "What movie features the line 'May the Force be with you'?", "answer": "Star Wars"},
-        {"question": "Which TV show features a chemistry teacher turned meth cook?", "answer": "Breaking Bad"},
-        {"question": "Who directed the movie 'Jaws'?", "answer": "Steven Spielberg"},
+        {"question": "In Cheers, what was the name of the bar's know-it-all mailman?", "answer": "Cliff Clavin"},
+        {"question": "Who played Dirty Harry in the 1971 film?", "answer": "Clint Eastwood"},
+        {"question": "What movie won the first-ever Academy Award for Best Picture?", "answer": "Wings"},
+        {"question": "In The Golden Girls, which character was from St. Olaf, Minnesota?", "answer": "Rose Nylund"},
+        {"question": "Who shot J.R. in Dallas?", "answer": "Kristin Shepard"},
+        {"question": "What 1975 movie is credited with creating the concept of the 'summer blockbuster'?", "answer": "Jaws"},
+        {"question": "Who played Rocky Balboa's trainer, Mickey, in the Rocky films?", "answer": "Burgess Meredith"},
+        {"question": "In I Love Lucy, what was Lucy's husband's first name?", "answer": "Ricky"},
+        {"question": "Which actor voiced Darth Vader in the original Star Wars trilogy?", "answer": "James Earl Jones"},
+        {"question": "What TV show featured the catchphrase 'Book 'em, Danno'?", "answer": "Hawaii Five-O"},
+        {"question": "What was the name of Quint's boat in Jaws?", "answer": "The Orca"},
+        {"question": "In the original Twilight Zone series, who was the show's creator and narrator?", "answer": "Rod Serling"},
+        {"question": "Which 1970s sci-fi film features the ship 'Discovery One'?", "answer": "2001: A Space Odyssey"},
+        {"question": "In The Godfather, who wakes up with a horse's head in his bed?", "answer": "Jack Woltz"},
+        {"question": "What actor turned down the role of Han Solo before Harrison Ford got it?", "answer": "Al Pacino"},
     ],
     "Sports": [
-        {"question": "How many players are on a basketball team on the court at once?", "answer": "5"},
-        {"question": "What sport is played at Wimbledon?", "answer": "Tennis"},
-        {"question": "Which country won the 2018 FIFA World Cup?", "answer": "France"},
+        {"question": "Who holds the MLB record for most career home runs?", "answer": "Barry Bonds"},
+        {"question": "What NFL team won the first Super Bowl in 1967?", "answer": "Green Bay Packers"},
+        {"question": "Who was known as 'The Greatest' in boxing?", "answer": "Muhammad Ali"},
+        {"question": "In golf, what's the term for three under par on a single hole?", "answer": "Albatross"},
+        {"question": "Which NHL team has the most Stanley Cup wins?", "answer": "Montreal Canadiens"},
+        {"question": "Who was the first NBA player to score 100 points in a single game?", "answer": "Wilt Chamberlain"},
+        {"question": "Which country won the FIFA World Cup in 1982?", "answer": "Italy"},
+        {"question": "In baseball, what is the term for hitting a home run with the bases loaded?", "answer": "Grand slam"},
+        {"question": "Who was the first woman to run the Boston Marathon officially?", "answer": "Kathrine Switzer"},
+        {"question": "What horse won the Triple Crown in 1973?", "answer": "Secretariat"},
+        {"question": "Who was the first baseball player to have his number retired?", "answer": "Lou Gehrig"},
+        {"question": "Which country won the first-ever FIFA Women's World Cup in 1991?", "answer": "United States"},
+        {"question": "In what year did the NHL officially merge with the WHA?", "answer": "1979"},
+        {"question": "What was the last MLB team to integrate racially?", "answer": "Boston Red Sox"},
+        {"question": "Who was the first NBA player drafted number one straight out of high school?", "answer": "Kwame Brown"},
     ],
-    "Science": [
-        {"question": "What is the chemical symbol for gold?", "answer": "Au"},
-        {"question": "How many bones are in an adult human body?", "answer": "206"},
-        {"question": "What planet is known as the Red Planet?", "answer": "Mars"},
-        {"question": "What is the speed of light in vacuum?", "answer": "299,792,458 meters per second"},
-        {"question": "What is the hardest natural substance?", "answer": "Diamond"},
-        {"question": "What planet is closest to the Sun?", "answer": "Mercury"},
-        {"question": "What is H2O commonly known as?", "answer": "Water"},
-        {"question": "How many chambers does a human heart have?", "answer": "4"},
-        {"question": "What gas makes up about 78% of Earth's atmosphere?", "answer": "Nitrogen"},
-        {"question": "What force keeps planets in orbit around the Sun?", "answer": "Gravity"},
+    "General Knowledge": [
+        {"question": "What's the capital of Canada?", "answer": "Ottawa"},
+        {"question": "Who invented the telephone?", "answer": "Alexander Graham Bell"},
+        {"question": "How many sides does a stop sign have?", "answer": "Eight"},
+        {"question": "What's the world's largest ocean?", "answer": "Pacific Ocean"},
+        {"question": "Which U.S. president appears on the $2 bill?", "answer": "Thomas Jefferson"},
+        {"question": "What is the smallest U.S. state by land area?", "answer": "Rhode Island"},
+        {"question": "Who painted the ceiling of the Sistine Chapel?", "answer": "Michelangelo"},
+        {"question": "What's the chemical symbol for gold?", "answer": "Au"},
+        {"question": "What is the largest desert in the world?", "answer": "Antarctic Desert"},
+        {"question": "What was the first U.S. state?", "answer": "Delaware"},
+        {"question": "What year did the Berlin Wall fall?", "answer": "1989"},
+        {"question": "Who invented the lightbulb?", "answer": "Thomas Edison"},
+        {"question": "What's the only country in the world named after a woman?", "answer": "Saint Lucia"},
+        {"question": "What U.S. state has the most ghost towns?", "answer": "Texas"},
+        {"question": "What's the rarest M&M color?", "answer": "Brown"},
     ],
-    "History": [
-        {"question": "In which year did World War II end?", "answer": "1945"},
-        {"question": "Who was the first person to walk on the moon?", "answer": "Neil Armstrong"},
-        {"question": "Which ancient wonder was located in Alexandria?", "answer": "Lighthouse of Alexandria"},
-    ],
-    "Food & Drink": [
-        {"question": "What spice is derived from the Crocus flower?", "answer": "Saffron"},
-        {"question": "Which country is famous for inventing pizza?", "answer": "Italy"},
-        {"question": "What is the main ingredient in guacamole?", "answer": "Avocado"},
-    ],
-    "Music": [
-        {"question": "Which instrument has 88 keys?", "answer": "Piano"},
-        {"question": "Who composed 'The Four Seasons'?", "answer": "Vivaldi"},
-        {"question": "What does 'forte' mean in music?", "answer": "Loud"},
-    ],
-    "Geography": [
-        {"question": "What is the capital of Australia?", "answer": "Canberra"},
-        {"question": "Which river is the longest in the world?", "answer": "Nile"},
-        {"question": "How many continents are there?", "answer": "7"},
+    "Science & Medical": [
+        {"question": "What is the largest internal organ in the human body?", "answer": "Liver"},
+        {"question": "How many chambers are in the human heart?", "answer": "Four"},
+        {"question": "What is the medical term for the kneecap?", "answer": "Patella"},
+        {"question": "Which part of the brain controls balance and coordination?", "answer": "Cerebellum"},
+        {"question": "What is the longest bone in the human body?", "answer": "Femur"},
+        {"question": "What disease is caused by a deficiency of vitamin D?", "answer": "Rickets"},
+        {"question": "What is the medical term for high blood pressure?", "answer": "Hypertension"},
+        {"question": "Which viral disease has been completely eradicated worldwide?", "answer": "Smallpox"},
+        {"question": "What is the medical term for a heart attack?", "answer": "Myocardial infarction"},
+        {"question": "What condition is known as 'the bends'?", "answer": "Decompression sickness"},
+        {"question": "Who is known as the 'Father of Medicine'?", "answer": "Hippocrates"},
+        {"question": "In what year was penicillin discovered?", "answer": "1928"},
+        {"question": "Who invented the first practical stethoscope?", "answer": "René Laennec"},
+        {"question": "What was the first vaccine ever developed?", "answer": "Smallpox vaccine"},
+        {"question": "What part of the human body can regenerate itself?", "answer": "Liver"},
     ],
     "Animals": [
         {"question": "What is the largest mammal in the world?", "answer": "Blue Whale"},
         {"question": "How many hearts does an octopus have?", "answer": "3"},
         {"question": "What is a group of lions called?", "answer": "Pride"},
+        {"question": "Which animal is known as the 'Ship of the Desert'?", "answer": "Camel"},
+        {"question": "How many legs does a spider have?", "answer": "8"},
+        {"question": "What is the fastest land animal?", "answer": "Cheetah"},
+        {"question": "Which bird cannot fly but is the fastest runner?", "answer": "Ostrich"},
+        {"question": "What do you call a baby kangaroo?", "answer": "Joey"},
+        {"question": "Which animal has the longest lifespan?", "answer": "Tortoise"},
+        {"question": "What is the largest type of penguin?", "answer": "Emperor penguin"},
+        {"question": "Which animal has the longest migration route?", "answer": "Arctic tern"},
+        {"question": "What's the only venomous lizard native to the United States?", "answer": "Gila monster"},
+        {"question": "Which mammal can survive the longest without drinking water?", "answer": "Kangaroo rat"},
+        {"question": "What is the largest living bird by weight?", "answer": "Ostrich"},
+        {"question": "Which animal has the most powerful bite force in the animal kingdom?", "answer": "Saltwater crocodile"},
+    ],
+    "Geography": [
+        {"question": "What is the capital of Australia?", "answer": "Canberra"},
+        {"question": "Which river is the longest in the world?", "answer": "Nile"},
+        {"question": "How many continents are there?", "answer": "7"},
+        {"question": "Which is the smallest country in the world?", "answer": "Vatican City"},
+        {"question": "What is the tallest mountain in the world?", "answer": "Mount Everest"},
+        {"question": "Which desert is the largest in the world?", "answer": "Antarctica"},
+        {"question": "What is the deepest ocean trench?", "answer": "Mariana Trench"},
+        {"question": "Which country has the most time zones?", "answer": "France"},
+        {"question": "What is the longest river in South America?", "answer": "Amazon River"},
+        {"question": "Which African country is completely surrounded by South Africa?", "answer": "Lesotho"},
+        {"question": "Which country has the most lakes in the world?", "answer": "Canada"},
+        {"question": "What is the capital of Kazakhstan?", "answer": "Astana"},
+        {"question": "Which European capital city is built on 14 islands?", "answer": "Stockholm"},
+        {"question": "Which African country has the largest population?", "answer": "Nigeria"},
+        {"question": "What is the deepest point in the world's oceans?", "answer": "Mariana Trench"},
     ]
 }
 
@@ -481,27 +552,15 @@ async def _select_winning_category(lobby_name: str, manager):
         # No votes, pick random
         game_data.selected_category = random.choice(game_data.category_options)
     
-    # Try to get AI-generated question first, then fallback to static questions
-    ai_question = None
-    try:
-        print(f"Attempting to generate AI question for category: {game_data.selected_category}")
-        ai_question = await get_ai_question(game_data.selected_category)
-        if ai_question:
-            print(f"AI question generated successfully")
-            game_data.current_question = ai_question["question"]
-            game_data.correct_answer = ai_question["answer"]
-        else:
-            print("AI question generation failed, using static questions")
-    except Exception as e:
-        print(f"AI question generation error: {e}")
-    
-    # Fallback to static questions if AI fails
-    if not ai_question:
-        questions = TRIVIA_QUESTIONS.get(game_data.selected_category, [])
-        if questions:
-            selected_q = random.choice(questions)
-            game_data.current_question = selected_q["question"]
-            game_data.correct_answer = selected_q["answer"]
+    # Select a random question from the static question bank
+    questions = TRIVIA_QUESTIONS.get(game_data.selected_category, [])
+    if questions:
+        selected_q = random.choice(questions)
+        game_data.current_question = selected_q["question"]
+        game_data.correct_answer = selected_q["answer"]
+        print(f"📚 Selected static question for {game_data.selected_category}: {game_data.current_question}")
+    else:
+        print(f"❌ No questions available for category: {game_data.selected_category}")
     
     await storage.set_lobby(lobby_name, lobby)
     
@@ -708,27 +767,15 @@ async def _start_next_question(lobby_name: str, manager):
     
     game_data = lobby.current_game
     
-    # Try to get AI-generated question first, then fallback to static questions
-    ai_question = None
-    try:
-        print(f"Generating AI question for next round - category: {game_data.selected_category}")
-        ai_question = await get_ai_question(game_data.selected_category)
-        if ai_question:
-            print(f"AI question generated for next round")
-            game_data.current_question = ai_question["question"]
-            game_data.correct_answer = ai_question["answer"]
-        else:
-            print("AI question generation failed for next round, using static questions")
-    except Exception as e:
-        print(f"AI question generation error for next round: {e}")
-    
-    # Fallback to static questions if AI fails
-    if not ai_question:
-        questions = TRIVIA_QUESTIONS.get(game_data.selected_category, [])
-        if questions:
-            selected_q = random.choice(questions)
-            game_data.current_question = selected_q["question"]
-            game_data.correct_answer = selected_q["answer"]
+    # Select a new random question from the static question bank
+    questions = TRIVIA_QUESTIONS.get(game_data.selected_category, [])
+    if questions:
+        selected_q = random.choice(questions)
+        game_data.current_question = selected_q["question"]
+        game_data.correct_answer = selected_q["answer"]
+        print(f"📚 Next question for {game_data.selected_category}: {game_data.current_question}")
+    else:
+        print(f"❌ No questions available for category: {game_data.selected_category}")
     
     # Reset buzzers for new round
     game_data.buzzers = []
