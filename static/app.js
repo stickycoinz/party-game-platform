@@ -458,6 +458,8 @@ class GameClient {
             this.showBuzzerResults(payload);
         } else if (payload.phase === 'timeout') {
             this.showTimeout(payload);
+        } else if (payload.phase === 'question_updated') {
+            this.showQuestionUpdated(payload);
         }
         
         if (payload.category_vote_confirmed) {
@@ -753,6 +755,22 @@ class GameClient {
         document.getElementById('buzzerButton').style.background = '#666';
     }
     
+    showQuestionUpdated(payload) {
+        // Update the question display
+        document.getElementById('triviaQuestion').textContent = payload.question;
+        document.getElementById('buzzerTimer').textContent = payload.message;
+        
+        // Show a notification that the question was updated
+        const statusEl = document.getElementById('buzzStatus');
+        if (statusEl) {
+            statusEl.textContent = '🤖 Host generated a new AI question!';
+            statusEl.className = 'status success';
+        }
+        
+        console.log('Question updated:', payload.question);
+        console.log('AI Source:', payload.source);
+    }
+    
     voteForCategory(category) {
         this.sendWebSocketMessage('game_action', {
             action: 'vote_category',
@@ -808,6 +826,17 @@ class GameClient {
                 timestamp: Date.now() / 1000
             });
         }
+    }
+    
+    generateAIQuestion() {
+        if (!this.isHost) return;
+        
+        console.log('Host generating AI question...');
+        this.sendWebSocketMessage('game_action', {
+            action: 'generate_question',
+            category: this.currentLobby?.current_game?.selected_category || 'General',
+            timestamp: Date.now() / 1000
+        });
     }
     
     startCountdown(seconds) {
@@ -1031,6 +1060,10 @@ function nextQuestion() {
 
 function endGame() {
     window.gameClient.endGame();
+}
+
+function generateAIQuestion() {
+    window.gameClient.generateAIQuestion();
 }
 
 // Initialize the game client immediately

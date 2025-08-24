@@ -8,6 +8,7 @@ from app.schemas.game import (
     AwardPointsAction, NextQuestionAction, EndGameAction
 )
 from app.schemas.lobby import Lobby
+from app.utils.chatgpt import get_ai_question
 from app.utils.storage import get_storage
 
 async def start_tap_gauntlet(lobby_name: str, lobby: Lobby, manager) -> bool:
@@ -320,6 +321,13 @@ TRIVIA_QUESTIONS = {
         {"question": "What is the chemical symbol for gold?", "answer": "Au"},
         {"question": "How many bones are in an adult human body?", "answer": "206"},
         {"question": "What planet is known as the Red Planet?", "answer": "Mars"},
+        {"question": "What is the speed of light in vacuum?", "answer": "299,792,458 meters per second"},
+        {"question": "What is the hardest natural substance?", "answer": "Diamond"},
+        {"question": "What planet is closest to the Sun?", "answer": "Mercury"},
+        {"question": "What is H2O commonly known as?", "answer": "Water"},
+        {"question": "How many chambers does a human heart have?", "answer": "4"},
+        {"question": "What gas makes up about 78% of Earth's atmosphere?", "answer": "Nitrogen"},
+        {"question": "What force keeps planets in orbit around the Sun?", "answer": "Gravity"},
     ],
     "History": [
         {"question": "In which year did World War II end?", "answer": "1945"},
@@ -473,12 +481,27 @@ async def _select_winning_category(lobby_name: str, manager):
         # No votes, pick random
         game_data.selected_category = random.choice(game_data.category_options)
     
-    # Pick a random question from the winning category
-    questions = TRIVIA_QUESTIONS.get(game_data.selected_category, [])
-    if questions:
-        selected_q = random.choice(questions)
-        game_data.current_question = selected_q["question"]
-        game_data.correct_answer = selected_q["answer"]
+    # Try to get AI-generated question first, then fallback to static questions
+    ai_question = None
+    try:
+        print(f"Attempting to generate AI question for category: {game_data.selected_category}")
+        ai_question = await get_ai_question(game_data.selected_category)
+        if ai_question:
+            print(f"AI question generated successfully")
+            game_data.current_question = ai_question["question"]
+            game_data.correct_answer = ai_question["answer"]
+        else:
+            print("AI question generation failed, using static questions")
+    except Exception as e:
+        print(f"AI question generation error: {e}")
+    
+    # Fallback to static questions if AI fails
+    if not ai_question:
+        questions = TRIVIA_QUESTIONS.get(game_data.selected_category, [])
+        if questions:
+            selected_q = random.choice(questions)
+            game_data.current_question = selected_q["question"]
+            game_data.correct_answer = selected_q["answer"]
     
     await storage.set_lobby(lobby_name, lobby)
     
@@ -685,12 +708,27 @@ async def _start_next_question(lobby_name: str, manager):
     
     game_data = lobby.current_game
     
-    # Pick a new question from the same category
-    questions = TRIVIA_QUESTIONS.get(game_data.selected_category, [])
-    if questions:
-        selected_q = random.choice(questions)
-        game_data.current_question = selected_q["question"]
-        game_data.correct_answer = selected_q["answer"]
+    # Try to get AI-generated question first, then fallback to static questions
+    ai_question = None
+    try:
+        print(f"Generating AI question for next round - category: {game_data.selected_category}")
+        ai_question = await get_ai_question(game_data.selected_category)
+        if ai_question:
+            print(f"AI question generated for next round")
+            game_data.current_question = ai_question["question"]
+            game_data.correct_answer = ai_question["answer"]
+        else:
+            print("AI question generation failed for next round, using static questions")
+    except Exception as e:
+        print(f"AI question generation error for next round: {e}")
+    
+    # Fallback to static questions if AI fails
+    if not ai_question:
+        questions = TRIVIA_QUESTIONS.get(game_data.selected_category, [])
+        if questions:
+            selected_q = random.choice(questions)
+            game_data.current_question = selected_q["question"]
+            game_data.correct_answer = selected_q["answer"]
     
     # Reset buzzers for new round
     game_data.buzzers = []
@@ -870,3 +908,66 @@ async def handle_buzzer_trivia_action(lobby_name: str, player_name: str, action:
         # Only the host can end the game
         if player_name == lobby.host:
             await _end_buzzer_trivia_game(lobby_name, manager)
+    
+    elif action == "generate_question":
+        # Only the host can generate questions
+        if player_name == lobby.host:
+            category = payload.get("category", game_data.selected_category)
+            print(f"Host {player_name} requested AI question for category: {category}")
+            
+            try:
+                ai_question = await get_ai_question(category)
+                if ai_question:
+                    # Update the current question
+                    game_data.current_question = ai_question["question"]
+                    game_data.correct_answer = ai_question["answer"]
+                    await storage.set_lobby(lobby_name, lobby)
+                    
+                    # Broadcast new question to everyone
+                    await manager.broadcast_to_lobby(lobby_name, WSEvent(
+                        type=WSEventType.GAME_STATE,
+                        payload={
+                            "phase": "question_updated",
+                            "question": game_data.current_question,
+                            "answer": game_data.correct_answer,
+                            "category": category,
+                            "message": f"🤖 Host generated a new AI question!",
+                            "source": "AI-generated"
+                        },
+                        timestamp=time.time()
+                    ))
+                    
+                    # Send answer to host only
+                    await manager.send_to_player(lobby_name, player_name, WSEvent(
+                        type=WSEventType.GAME_STATE,
+                        payload={
+                            "phase": "host_answer",
+                            "correct_answer": game_data.correct_answer,
+                            "host_controls": True,
+                            "message": f"🤖 AI Answer: {game_data.correct_answer}"
+                        },
+                        timestamp=time.time()
+                    ))
+                    
+                    print(f"AI question generated and sent to lobby")
+                else:
+                    await manager.send_to_player(lobby_name, player_name, WSEvent(
+                        type=WSEventType.GAME_STATE,
+                        payload={
+                            "phase": "error",
+                            "message": "❌ Failed to generate AI question. Please try again.",
+                        },
+                        timestamp=time.time()
+                    ))
+                    print(f"Failed to generate AI question for {category}")
+                    
+            except Exception as e:
+                print(f"Error generating AI question: {e}")
+                await manager.send_to_player(lobby_name, player_name, WSEvent(
+                    type=WSEventType.GAME_STATE,
+                    payload={
+                        "phase": "error",
+                        "message": "❌ AI question generation error. Check API key.",
+                    },
+                    timestamp=time.time()
+                ))
