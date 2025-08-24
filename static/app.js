@@ -344,17 +344,38 @@ class GameClient {
     
     startGameUI(payload) {
         this.gameState = 'starting';
-        this.tapCount = 0;
         this.showScreen('gameScreen');
         
+        if (payload.game_type === 'tap_gauntlet') {
+            this.setupTapGauntletUI(payload);
+        } else if (payload.game_type === 'reverse_trivia') {
+            this.setupReverseTriviaUI(payload);
+        }
+    }
+    
+    setupTapGauntletUI(payload) {
         document.getElementById('gameTitle').textContent = 'Tap Gauntlet';
+        document.getElementById('tapGameArea').classList.remove('hidden');
+        document.getElementById('triviaGameArea').classList.add('hidden');
+        
+        this.tapCount = 0;
         document.getElementById('scoreDisplay').textContent = '0 taps';
         document.getElementById('gameTimer').textContent = `Starting in ${payload.countdown}...`;
         document.getElementById('gameStatus').textContent = 'Get ready to tap!';
         document.getElementById('tapButton').disabled = true;
     }
     
+    setupReverseTriviaUI(payload) {
+        document.getElementById('gameTitle').textContent = '🃏 Reverse Trivia';
+        document.getElementById('tapGameArea').classList.add('hidden');
+        document.getElementById('triviaGameArea').classList.remove('hidden');
+        
+        document.getElementById('triviaTimer').textContent = payload.message || 'Get ready...';
+        this.hideAllTriviaPhases();
+    }
+    
     updateGameState(payload) {
+        // Handle Tap Gauntlet states
         if (payload.state === 'in_progress') {
             this.gameState = 'playing';
             document.getElementById('gameTimer').textContent = payload.message || 'TAP NOW!';
@@ -375,6 +396,133 @@ class GameClient {
                 timestamp: Date.now() / 1000
             });
         }
+        
+        // Handle Reverse Trivia states
+        if (payload.phase === 'submission') {
+            this.showSubmissionPhase(payload);
+        } else if (payload.phase === 'voting') {
+            this.showVotingPhase(payload);
+        } else if (payload.phase === 'results') {
+            this.showResultsPhase(payload);
+        }
+        
+        if (payload.submission_confirmed) {
+            document.getElementById('submissionStatus').textContent = '✅ Question submitted!';
+        }
+        
+        if (payload.vote_confirmed) {
+            document.getElementById('votingStatus').textContent = '✅ Vote cast!';
+        }
+    }
+    
+    hideAllTriviaPhases() {
+        document.getElementById('submissionPhase').classList.add('hidden');
+        document.getElementById('votingPhase').classList.add('hidden');
+        document.getElementById('resultsPhase').classList.add('hidden');
+    }
+    
+    showSubmissionPhase(payload) {
+        this.hideAllTriviaPhases();
+        document.getElementById('submissionPhase').classList.remove('hidden');
+        
+        document.getElementById('triviaAnswer').textContent = `The Answer: ${payload.answer}`;
+        document.getElementById('triviaTimer').textContent = payload.message;
+        document.getElementById('questionInput').value = '';
+        document.getElementById('submissionStatus').textContent = '';
+    }
+    
+    showVotingPhase(payload) {
+        this.hideAllTriviaPhases();
+        document.getElementById('votingPhase').classList.remove('hidden');
+        
+        document.getElementById('votingAnswer').textContent = `Answer: ${payload.answer}`;
+        document.getElementById('triviaTimer').textContent = payload.message;
+        
+        const submissionsList = document.getElementById('submissionsList');
+        submissionsList.innerHTML = '';
+        
+        payload.submissions.forEach(submission => {
+            if (submission.player !== this.currentPlayer) {  // Can't vote for yourself
+                const button = document.createElement('button');
+                button.textContent = `"${submission.question}" - ${submission.player}`;
+                button.style.cssText = 'width: 100%; margin: 8px 0; padding: 12px; text-align: left;';
+                button.onclick = () => this.voteForQuestion(submission.player);
+                submissionsList.appendChild(button);
+            }
+        });
+        
+        document.getElementById('votingStatus').textContent = '';
+    }
+    
+    showResultsPhase(payload) {
+        this.hideAllTriviaPhases();
+        document.getElementById('resultsPhase').classList.remove('hidden');
+        
+        document.getElementById('triviaTimer').textContent = `Round ${payload.round} Results`;
+        
+        const resultsDiv = document.getElementById('roundResults');
+        resultsDiv.innerHTML = '';
+        
+        if (payload.round_winner) {
+            const winnerDiv = document.createElement('div');
+            winnerDiv.className = 'winner';
+            winnerDiv.textContent = `🏆 Round Winner: ${payload.round_winner}`;
+            resultsDiv.appendChild(winnerDiv);
+        }
+        
+        payload.submissions.forEach(submission => {
+            const submissionDiv = document.createElement('div');
+            submissionDiv.className = 'result-item';
+            submissionDiv.innerHTML = `
+                <span>"${submission.question}" - ${submission.player}</span>
+                <span>${submission.votes} votes</span>
+            `;
+            resultsDiv.appendChild(submissionDiv);
+        });
+        
+        // Show total scores
+        if (payload.total_scores) {
+            const scoresDiv = document.createElement('div');
+            scoresDiv.style.marginTop = '16px';
+            scoresDiv.innerHTML = '<h4>Total Scores:</h4>';
+            
+            Object.entries(payload.total_scores)
+                .sort(([,a], [,b]) => b - a)
+                .forEach(([player, score]) => {
+                    const scoreDiv = document.createElement('div');
+                    scoreDiv.className = 'result-item';
+                    scoreDiv.innerHTML = `<span>${player}</span><span>${score} points</span>`;
+                    scoresDiv.appendChild(scoreDiv);
+                });
+            
+            resultsDiv.appendChild(scoresDiv);
+        }
+    }
+    
+    submitQuestion() {
+        const question = document.getElementById('questionInput').value.trim();
+        if (!question) {
+            document.getElementById('submissionStatus').textContent = 'Please write a question!';
+            return;
+        }
+        
+        this.sendWebSocketMessage('game_action', {
+            action: 'submit_question',
+            question: question,
+            timestamp: Date.now() / 1000
+        });
+        
+        document.getElementById('submissionStatus').textContent = 'Submitting...';
+    }
+    
+    voteForQuestion(playerName) {
+        this.sendWebSocketMessage('game_action', {
+            action: 'vote',
+            voted_for: playerName,
+            timestamp: Date.now() / 1000
+        });
+        
+        document.getElementById('votingStatus').textContent = `Voting for ${playerName}...`;
     }
     
     updateGameTick(payload) {
@@ -502,6 +650,14 @@ function backToLobby() {
 
 function leaveLobby() {
     window.gameClient.leaveLobby();
+}
+
+function submitQuestion() {
+    window.gameClient.submitQuestion();
+}
+
+function voteForQuestion(playerName) {
+    window.gameClient.voteForQuestion(playerName);
 }
 
 // Initialize the game client when page loads

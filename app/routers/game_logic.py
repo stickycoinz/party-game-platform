@@ -350,14 +350,114 @@ async def _run_reverse_trivia_game(lobby_name: str, manager):
         ))
         await asyncio.sleep(1)
     
-    # Start submission phase
+    # Start first round
+    await _start_trivia_round(lobby_name, manager)
+
+async def _start_voting_phase(lobby_name: str, manager):
+    """Start the voting phase."""
     storage = await get_storage()
     lobby = await storage.get_lobby(lobby_name)
+    
     if not lobby or not isinstance(lobby.current_game, ReverseTriviaData):
         return
     
     game_data = lobby.current_game
-    game_data.state = GameState.IN_PROGRESS
+    
+    # Check if we have submissions
+    if not game_data.submissions:
+        # No submissions, end game
+        await _end_reverse_trivia_game(lobby_name, manager)
+        return
+    
+    # Show voting phase
+    await manager.broadcast_to_lobby(lobby_name, WSEvent(
+        type=WSEventType.GAME_STATE,
+        payload={
+            "phase": "voting",
+            "answer": game_data.current_answer,
+            "submissions": [
+                {"player": player, "question": question}
+                for player, question in game_data.submissions.items()
+            ],
+            "message": "Vote for the best question!",
+            "time_limit": 20
+        },
+        timestamp=time.time()
+    ))
+    
+    # Wait 20 seconds for voting
+    await asyncio.sleep(20)
+    
+    # Show round results
+    await _show_round_results(lobby_name, manager)
+
+async def _show_round_results(lobby_name: str, manager):
+    """Calculate and display round results."""
+    storage = await get_storage()
+    lobby = await storage.get_lobby(lobby_name)
+    
+    if not lobby or not isinstance(lobby.current_game, ReverseTriviaData):
+        return
+    
+    game_data = lobby.current_game
+    
+    # Count votes
+    vote_counts = {}
+    for voted_for in game_data.votes.values():
+        vote_counts[voted_for] = vote_counts.get(voted_for, 0) + 1
+    
+    # Calculate scores (1 point per vote received)
+    for player in lobby.players:
+        votes = vote_counts.get(player.name, 0)
+        game_data.round_scores[player.name] = votes
+        game_data.total_scores[player.name] = game_data.total_scores.get(player.name, 0) + votes
+    
+    # Find round winner
+    round_winner = max(vote_counts.items(), key=lambda x: x[1])[0] if vote_counts else None
+    
+    await storage.set_lobby(lobby_name, lobby)
+    
+    # Show results
+    await manager.broadcast_to_lobby(lobby_name, WSEvent(
+        type=WSEventType.GAME_STATE,
+        payload={
+            "phase": "results",
+            "round": game_data.current_round,
+            "round_winner": round_winner,
+            "submissions": [
+                {"player": p, "question": q, "votes": vote_counts.get(p, 0)}
+                for p, q in game_data.submissions.items()
+            ],
+            "total_scores": game_data.total_scores
+        },
+        timestamp=time.time()
+    ))
+    
+    await asyncio.sleep(5)  # Show results for 5 seconds
+    
+    # Check if game is over
+    if game_data.current_round >= game_data.max_rounds:
+        await _end_reverse_trivia_game(lobby_name, manager)
+    else:
+        # Start next round
+        game_data.current_round += 1
+        game_data.current_answer = random.choice(REVERSE_TRIVIA_ANSWERS)
+        await storage.set_lobby(lobby_name, lobby)
+        await _start_trivia_round(lobby_name, manager)
+
+async def _start_trivia_round(lobby_name: str, manager):
+    """Start a new round of trivia."""
+    storage = await get_storage()
+    lobby = await storage.get_lobby(lobby_name)
+    
+    if not lobby or not isinstance(lobby.current_game, ReverseTriviaData):
+        return
+    
+    game_data = lobby.current_game
+    game_data.submissions = {}
+    game_data.votes = {}
+    game_data.round_scores = {}
+    
     await storage.set_lobby(lobby_name, lobby)
     
     # Show the answer and ask for questions
@@ -365,8 +465,9 @@ async def _run_reverse_trivia_game(lobby_name: str, manager):
         type=WSEventType.GAME_STATE,
         payload={
             "phase": "submission",
+            "round": game_data.current_round,
             "answer": game_data.current_answer,
-            "message": f"Write a question for: {game_data.current_answer}",
+            "message": f"Round {game_data.current_round}: Write a question for: {game_data.current_answer}",
             "time_limit": 30
         },
         timestamp=time.time()
@@ -375,27 +476,62 @@ async def _run_reverse_trivia_game(lobby_name: str, manager):
     # Wait 30 seconds for submissions
     await asyncio.sleep(30)
     
-    # Simple game end for now
+    # Move to voting phase
+    await _start_voting_phase(lobby_name, manager)
+
+async def _end_reverse_trivia_game(lobby_name: str, manager):
+    """End the game and show final results."""
+    storage = await get_storage()
     lobby = await storage.get_lobby(lobby_name)
-    if lobby:
-        lobby.game_state = GameState.WAITING
-        lobby.current_game = None
-        for player in lobby.players:
-            player.is_ready = False
-        await storage.set_lobby(lobby_name, lobby)
-        
-        await manager.broadcast_to_lobby(lobby_name, WSEvent(
-            type=WSEventType.GAME_FINISHED,
-            payload={
-                "results": {
-                    "game_type": "reverse_trivia",
-                    "winner": "Everyone!",
-                    "scores": [{"player_name": p.name, "score": 1, "position": 1} for p in lobby.players],
-                    "duration_seconds": 35
-                }
-            },
-            timestamp=time.time()
+    
+    if not lobby or not isinstance(lobby.current_game, ReverseTriviaData):
+        return
+    
+    game_data = lobby.current_game
+    game_data.state = GameState.FINISHED
+    game_data.end_time = time.time()
+    
+    # Calculate final results
+    scores = []
+    for player in lobby.players:
+        total_score = game_data.total_scores.get(player.name, 0)
+        scores.append(PlayerScore(
+            player_name=player.name,
+            score=total_score,
+            position=0
         ))
+    
+    # Sort by score descending
+    scores.sort(key=lambda x: x.score, reverse=True)
+    for i, score in enumerate(scores):
+        score.position = i + 1
+    
+    # Determine winner
+    winner = scores[0].player_name if scores else None
+    
+    results = GameResults(
+        game_type=GameType.REVERSE_TRIVIA,
+        winner=winner,
+        scores=scores,
+        duration_seconds=game_data.end_time - game_data.start_time
+    )
+    
+    # Reset lobby state
+    lobby.game_state = GameState.WAITING
+    lobby.current_game = None
+    
+    # Reset player ready states
+    for player in lobby.players:
+        player.is_ready = False
+    
+    await storage.set_lobby(lobby_name, lobby)
+    
+    # Broadcast results
+    await manager.broadcast_to_lobby(lobby_name, WSEvent(
+        type=WSEventType.GAME_FINISHED,
+        payload={"results": results.model_dump()},
+        timestamp=time.time()
+    ))
 
 async def handle_reverse_trivia_action(lobby_name: str, player_name: str, action: str, payload: dict, manager):
     """Handle Reverse Trivia specific actions."""
