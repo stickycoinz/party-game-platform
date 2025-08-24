@@ -5,6 +5,7 @@ from enum import Enum
 # Game State Enums
 class GameType(str, Enum):
     TAP_GAUNTLET = "tap_gauntlet"
+    REVERSE_TRIVIA = "reverse_trivia"
     IMPOSTOR_PROMPT = "impostor_prompt"
     SHOTGUN_ROULETTE = "shotgun_roulette"
 
@@ -53,6 +54,19 @@ class ImpostorPromptData(BaseGameData):
     votes: Dict[str, str] = {}  # voter -> voted_for
     revealed: bool = False
 
+# Reverse Trivia specific data
+class ReverseTriviaData(BaseGameData):
+    game_type: Literal[GameType.REVERSE_TRIVIA] = GameType.REVERSE_TRIVIA
+    current_answer: str = ""  # The answer players write questions for
+    submission_duration: int = 60  # Time to submit questions
+    voting_duration: int = 30  # Time to vote
+    current_round: int = 1
+    max_rounds: int = 3
+    submissions: Dict[str, str] = {}  # player -> question
+    votes: Dict[str, str] = {}  # voter -> voted_for_player
+    round_scores: Dict[str, int] = {}  # player -> points this round
+    total_scores: Dict[str, int] = {}  # player -> total points
+
 # Shotgun Roulette specific data
 class ShotgunRouletteData(BaseGameData):
     game_type: Literal[GameType.SHOTGUN_ROULETTE] = GameType.SHOTGUN_ROULETTE
@@ -62,7 +76,7 @@ class ShotgunRouletteData(BaseGameData):
     chamber_picks: Dict[str, int] = {}  # player -> chamber_index
 
 # Union type for all game data
-GameData = Union[TapGauntletData, ImpostorPromptData, ShotgunRouletteData]
+GameData = Union[TapGauntletData, ReverseTriviaData, ImpostorPromptData, ShotgunRouletteData]
 
 # WebSocket Event Models
 class WSEventType(str, Enum):
@@ -152,6 +166,17 @@ class TapAction(BaseModel):
 class TapResponseAction(BaseModel):
     action: Literal["tap_response"] = "tap_response"
     prompt_id: str
+    timestamp: float
+
+# Game Action Types for Reverse Trivia
+class SubmitQuestionAction(BaseModel):
+    action: Literal["submit_question"] = "submit_question"
+    question: str
+    timestamp: float
+
+class VoteAction(BaseModel):
+    action: Literal["vote"] = "vote"
+    voted_for: str  # player name
     timestamp: float
 
 # Start Game Request

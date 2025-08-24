@@ -284,6 +284,9 @@ async def handle_game_action(lobby_name: str, player_name: str, payload: dict):
     if lobby.current_game.game_type == "tap_gauntlet":
         from app.routers.game_logic import handle_tap_gauntlet_action
         await handle_tap_gauntlet_action(lobby_name, player_name, action, payload, manager)
+    elif lobby.current_game.game_type == "reverse_trivia":
+        from app.routers.game_logic import handle_reverse_trivia_action
+        await handle_reverse_trivia_action(lobby_name, player_name, action, payload, manager)
 
 # Utility function to broadcast lobby updates
 async def broadcast_lobby_update(lobby_name: str):

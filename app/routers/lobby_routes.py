@@ -128,6 +128,9 @@ async def start_game(
     if data.game_type == GameType.TAP_GAUNTLET:
         from app.routers.ws_routes import manager
         success = await start_tap_gauntlet(lobby_name, lobby, manager)
+    elif data.game_type == GameType.REVERSE_TRIVIA:
+        from app.routers.ws_routes import manager
+        success = await start_reverse_trivia(lobby_name, lobby, manager)
     
     if not success:
         raise HTTPException(status_code=500, detail="Failed to start game")

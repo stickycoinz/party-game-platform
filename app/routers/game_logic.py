@@ -3,8 +3,8 @@ import time
 import random
 from typing import Dict, List
 from app.schemas.game import (
-    TapGauntletData, GameState, GameType, GameResults, PlayerScore,
-    WSEvent, WSEventType, TapAction, TapResponseAction
+    TapGauntletData, ReverseTriviaData, GameState, GameType, GameResults, PlayerScore,
+    WSEvent, WSEventType, TapAction, TapResponseAction, SubmitQuestionAction, VoteAction
 )
 from app.schemas.lobby import Lobby
 from app.utils.storage import get_storage
@@ -288,3 +288,147 @@ async def _handle_tap_response(lobby_name: str, player_name: str, prompt_id: str
         print(f"Suspicious activity from {player_name}: invalid prompt response")
     
     await storage.set_lobby(lobby_name, lobby)
+
+# ===== REVERSE TRIVIA GAME =====
+
+# Reverse Trivia Answers Bank
+REVERSE_TRIVIA_ANSWERS = [
+    "Yellow fruit that monkeys supposedly love",
+    "What you wear on your feet", 
+    "The capital of France",
+    "Frozen water",
+    "The number of legs on a spider",
+    "Where you sleep at night",
+    "What bees make",
+    "The color of grass",
+    "What you use to write",
+    "The day after Friday"
+]
+
+async def start_reverse_trivia(lobby_name: str, lobby: Lobby, manager) -> bool:
+    """Start a Reverse Trivia game."""
+    if lobby.game_state != GameState.WAITING:
+        return False
+    
+    # Initialize game data
+    game_data = ReverseTriviaData(
+        state=GameState.STARTING,
+        start_time=time.time(),
+        current_answer=random.choice(REVERSE_TRIVIA_ANSWERS),
+        total_scores={player.name: 0 for player in lobby.players}
+    )
+    
+    lobby.current_game = game_data
+    lobby.game_state = GameState.STARTING
+    
+    storage = await get_storage()
+    await storage.set_lobby(lobby_name, lobby)
+    
+    # Broadcast game start
+    await manager.broadcast_to_lobby(lobby_name, WSEvent(
+        type=WSEventType.GAME_STARTED,
+        payload={
+            "game_type": GameType.REVERSE_TRIVIA,
+            "message": "Reverse Trivia time! I give the answer, you write the question!",
+            "countdown": 3
+        },
+        timestamp=time.time()
+    ))
+    
+    # Start game loop
+    asyncio.create_task(_run_reverse_trivia_game(lobby_name, manager))
+    return True
+
+async def _run_reverse_trivia_game(lobby_name: str, manager):
+    """Run the Reverse Trivia game loop."""
+    # Simple 3 second countdown
+    for i in range(3, 0, -1):
+        await manager.broadcast_to_lobby(lobby_name, WSEvent(
+            type=WSEventType.TICK,
+            payload={"countdown": i, "message": f"Starting in {i}..."},
+            timestamp=time.time()
+        ))
+        await asyncio.sleep(1)
+    
+    # Start submission phase
+    storage = await get_storage()
+    lobby = await storage.get_lobby(lobby_name)
+    if not lobby or not isinstance(lobby.current_game, ReverseTriviaData):
+        return
+    
+    game_data = lobby.current_game
+    game_data.state = GameState.IN_PROGRESS
+    await storage.set_lobby(lobby_name, lobby)
+    
+    # Show the answer and ask for questions
+    await manager.broadcast_to_lobby(lobby_name, WSEvent(
+        type=WSEventType.GAME_STATE,
+        payload={
+            "phase": "submission",
+            "answer": game_data.current_answer,
+            "message": f"Write a question for: {game_data.current_answer}",
+            "time_limit": 30
+        },
+        timestamp=time.time()
+    ))
+    
+    # Wait 30 seconds for submissions
+    await asyncio.sleep(30)
+    
+    # Simple game end for now
+    lobby = await storage.get_lobby(lobby_name)
+    if lobby:
+        lobby.game_state = GameState.WAITING
+        lobby.current_game = None
+        for player in lobby.players:
+            player.is_ready = False
+        await storage.set_lobby(lobby_name, lobby)
+        
+        await manager.broadcast_to_lobby(lobby_name, WSEvent(
+            type=WSEventType.GAME_FINISHED,
+            payload={
+                "results": {
+                    "game_type": "reverse_trivia",
+                    "winner": "Everyone!",
+                    "scores": [{"player_name": p.name, "score": 1, "position": 1} for p in lobby.players],
+                    "duration_seconds": 35
+                }
+            },
+            timestamp=time.time()
+        ))
+
+async def handle_reverse_trivia_action(lobby_name: str, player_name: str, action: str, payload: dict, manager):
+    """Handle Reverse Trivia specific actions."""
+    storage = await get_storage()
+    lobby = await storage.get_lobby(lobby_name)
+    
+    if not lobby or not isinstance(lobby.current_game, ReverseTriviaData):
+        return
+    
+    game_data = lobby.current_game
+    
+    if action == "submit_question":
+        question = payload.get("question", "").strip()
+        if question and len(question) <= 200:  # Reasonable length limit
+            game_data.submissions[player_name] = question
+            await storage.set_lobby(lobby_name, lobby)
+            
+            # Confirm submission
+            await manager.send_to_player(lobby_name, player_name, WSEvent(
+                type=WSEventType.GAME_STATE,
+                payload={"submission_confirmed": True},
+                timestamp=time.time()
+            ))
+    
+    elif action == "vote":
+        voted_for = payload.get("voted_for")
+        if voted_for and voted_for != player_name and voted_for in game_data.submissions:
+            game_data.votes[player_name] = voted_for
+            await storage.set_lobby(lobby_name, lobby)
+            
+            # Confirm vote
+            await manager.send_to_player(lobby_name, player_name, WSEvent(
+                type=WSEventType.GAME_STATE,
+                payload={"vote_confirmed": True},
+                timestamp=time.time()
+            ))
