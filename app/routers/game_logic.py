@@ -568,16 +568,28 @@ async def _show_buzzer_order(lobby_name: str, manager):
     
     await storage.set_lobby(lobby_name, lobby)
     
-    # Show buzzer order and host controls
+    # Show buzzer order to everyone, answer only to host
     await manager.broadcast_to_lobby(lobby_name, WSEvent(
         type=WSEventType.GAME_STATE,
         payload={
             "phase": "host_judging",
             "question": game_data.current_question,
-            "correct_answer": game_data.correct_answer,
             "buzzers": game_data.buzzers,
-            "message": f"🔔 Buzzer Order! Host: Award points to the correct answer!",
-            "host_controls": True
+            "message": f"🔔 Waiting for host to award points...",
+            "show_answer_to_host_only": True
+        },
+        timestamp=time.time()
+    ))
+    
+    # Send answer separately to host only
+    host_player = lobby.host
+    await manager.send_to_player(lobby_name, host_player, WSEvent(
+        type=WSEventType.GAME_STATE,
+        payload={
+            "phase": "host_answer",
+            "correct_answer": game_data.correct_answer,
+            "host_controls": True,
+            "message": f"🎯 ANSWER: {game_data.correct_answer}"
         },
         timestamp=time.time()
     ))
@@ -750,13 +762,15 @@ async def handle_buzzer_trivia_action(lobby_name: str, player_name: str, action:
                 timestamp=time.time()
             ))
             
-            # Broadcast to everyone that someone buzzed
+            # Broadcast live buzzer update to everyone
             await manager.broadcast_to_lobby(lobby_name, WSEvent(
                 type=WSEventType.GAME_STATE,
                 payload={
-                    "phase": "player_buzzed",
+                    "phase": "live_buzzers",
                     "buzzer_player": player_name,
-                    "message": f"🔔 {player_name} buzzed in!"
+                    "buzzers": game_data.buzzers,
+                    "message": f"🔔 {player_name} buzzed in! (#{len(game_data.buzzers)})",
+                    "keep_buzzing": True  # Keep buzzers active
                 },
                 timestamp=time.time()
             ))

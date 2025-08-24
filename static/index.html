@@ -380,12 +380,25 @@
                         </button>
                         <div id="buzzStatus" class="status info" style="margin-top: 12px;"></div>
                     </div>
+                    
+                    <!-- Live Buzzer List -->
+                    <div id="liveBuzzerList" class="hidden" style="margin-top: 16px;">
+                        <h4>🏃‍♂️ Buzzer Order:</h4>
+                        <div id="liveBuzzers"></div>
+                    </div>
                 </div>
                 
                 <!-- Host Judging Phase -->
                 <div id="hostJudgingPhase" class="hidden">
                     <h3>🔔 Buzzer Order</h3>
                     <div id="buzzerOrder"></div>
+                    
+                    <!-- Host-only answer display -->
+                    <div id="hostAnswerSection" class="hidden" style="background: #fef5e7; border: 2px solid #f6ad55; border-radius: 8px; padding: 16px; margin: 16px 0;">
+                        <h4 style="color: #c05621; margin: 0 0 8px 0;">🎯 HOST ONLY - CORRECT ANSWER:</h4>
+                        <p id="hostAnswer" style="font-size: 18px; font-weight: bold; color: #c05621; margin: 0;"></p>
+                    </div>
+                    
                     <div id="hostControls" class="hidden">
                         <h4 style="margin-top: 20px;">🎯 Host Controls:</h4>
                         <div id="pointButtons" style="margin: 12px 0;"></div>

@@ -429,8 +429,12 @@ class GameClient {
             this.showBuzzerActive(payload);
         } else if (payload.phase === 'player_buzzed') {
             this.showPlayerBuzzed(payload);
+        } else if (payload.phase === 'live_buzzers') {
+            this.showLiveBuzzers(payload);
         } else if (payload.phase === 'host_judging') {
             this.showHostJudging(payload);
+        } else if (payload.phase === 'host_answer') {
+            this.showHostAnswer(payload);
         } else if (payload.phase === 'points_awarded') {
             this.showPointsAwarded(payload);
         } else if (payload.phase === 'next_question') {
@@ -457,6 +461,8 @@ class GameClient {
         document.getElementById('hostJudgingPhase').classList.add('hidden');
         document.getElementById('buzzerResultsPhase').classList.add('hidden');
         document.getElementById('buzzerSection').classList.add('hidden');
+        document.getElementById('liveBuzzerList').classList.add('hidden');
+        document.getElementById('hostAnswerSection').classList.add('hidden');
     }
     
     showCategoryVotingPhase(payload) {
@@ -508,6 +514,41 @@ class GameClient {
         document.getElementById('buzzerTimer').textContent = payload.message;
     }
     
+    showLiveBuzzers(payload) {
+        document.getElementById('buzzerTimer').textContent = payload.message;
+        
+        // Show live buzzer list but keep buzzer active for others
+        document.getElementById('liveBuzzerList').classList.remove('hidden');
+        
+        const liveBuzzersDiv = document.getElementById('liveBuzzers');
+        liveBuzzersDiv.innerHTML = '';
+        
+        if (payload.buzzers && payload.buzzers.length > 0) {
+            // Sort by time (earliest first)
+            const sortedBuzzers = [...payload.buzzers].sort((a, b) => a.time - b.time);
+            
+            sortedBuzzers.forEach((buzzer, index) => {
+                const buzzerDiv = document.createElement('div');
+                buzzerDiv.className = 'result-item';
+                const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `${index + 1}.`;
+                const timeMs = Date.now() - (buzzer.time * 1000);
+                const timeDisplay = timeMs < 1000 ? 'just now' : `${(timeMs / 1000).toFixed(1)}s ago`;
+                
+                buzzerDiv.innerHTML = `
+                    <span>${medal} ${buzzer.player}</span>
+                    <span>${timeDisplay}</span>
+                `;
+                liveBuzzersDiv.appendChild(buzzerDiv);
+            });
+        }
+        
+        // Keep buzzer active for players who haven't buzzed yet
+        if (payload.keep_buzzing && !payload.buzzers.some(b => b.player === this.currentPlayer)) {
+            document.getElementById('buzzerButton').disabled = false;
+            document.getElementById('buzzerButton').style.background = '#ff6b6b';
+        }
+    }
+    
     showHostJudging(payload) {
         this.hideAllBuzzerPhases();
         document.getElementById('hostJudgingPhase').classList.remove('hidden');
@@ -517,19 +558,16 @@ class GameClient {
         const orderDiv = document.getElementById('buzzerOrder');
         orderDiv.innerHTML = '';
         
-        // Show question and answer
+        // Show question only (no answer for players)
         const questionDiv = document.createElement('div');
         questionDiv.style.marginBottom = '16px';
-        questionDiv.innerHTML = `
-            <p><strong>Q:</strong> ${payload.question}</p>
-            <p><strong>A:</strong> ${payload.correct_answer}</p>
-        `;
+        questionDiv.innerHTML = `<p><strong>Q:</strong> ${payload.question}</p>`;
         orderDiv.appendChild(questionDiv);
         
-        // Show buzzer order
+        // Show buzzer order with times
         if (payload.buzzers && payload.buzzers.length > 0) {
             const buzzersDiv = document.createElement('div');
-            buzzersDiv.innerHTML = '<h4>Buzzer Order:</h4>';
+            buzzersDiv.innerHTML = '<h4>Final Buzzer Order:</h4>';
             
             payload.buzzers.forEach((buzzer, index) => {
                 const buzzerDiv = document.createElement('div');
@@ -544,11 +582,20 @@ class GameClient {
             
             orderDiv.appendChild(buzzersDiv);
         }
-        
-        // Show host controls if user is the host
-        if (payload.host_controls && this.isHost) {
+    }
+    
+    showHostAnswer(payload) {
+        // This is only sent to the host
+        if (payload.host_controls) {
+            document.getElementById('hostAnswerSection').classList.remove('hidden');
+            document.getElementById('hostAnswer').textContent = payload.correct_answer;
             document.getElementById('hostControls').classList.remove('hidden');
-            this.setupHostControls(payload.buzzers);
+            
+            // Setup host controls based on buzzers
+            const lobby = this.currentLobby;
+            if (lobby && lobby.current_game && lobby.current_game.buzzers) {
+                this.setupHostControls(lobby.current_game.buzzers);
+            }
         }
     }
     
