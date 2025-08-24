@@ -267,11 +267,17 @@ class GameClient {
             return;
         }
         
+        this.updateStatus('Creating room...', 'info');
+        
         try {
+            console.log('Creating lobby:', { lobby_name: lobbyName, player_name: playerName });
+            
             const lobby = await this.apiCall('/lobby/create', 'POST', {
                 lobby_name: lobbyName,
                 player_name: playerName
             });
+            
+            console.log('Lobby created successfully:', lobby);
             
             this.currentPlayer = playerName;
             this.isHost = true;
@@ -279,8 +285,10 @@ class GameClient {
             this.connectWebSocket(lobbyName, playerName);
             this.showScreen('lobbyScreen');
             this.updateLobbyDisplay(lobby);
+            this.updateStatus(`Room "${lobbyName}" created successfully!`, 'success');
             
         } catch (error) {
+            console.error('Failed to create lobby:', error);
             // Error already handled in apiCall
         }
     }
