@@ -858,16 +858,7 @@ class GameClient {
         }
     }
     
-    generateAIQuestion() {
-        if (!this.isHost) return;
-        
-        console.log('Host generating AI question...');
-        this.sendWebSocketMessage('game_action', {
-            action: 'generate_question',
-            category: this.currentLobby?.current_game?.selected_category || 'General',
-            timestamp: Date.now() / 1000
-        });
-    }
+    // AI Question generation removed - using static question bank only
     
     startCountdown(seconds) {
         // Visual countdown display
@@ -1092,9 +1083,7 @@ function endGame() {
     window.gameClient.endGame();
 }
 
-function generateAIQuestion() {
-    window.gameClient.generateAIQuestion();
-}
+// AI Question generation removed
 
 // Initialize the game client immediately
 window.gameClient = new GameClient();
