@@ -1,0 +1,10 @@
+# Core dependencies
+fastapi>=0.112.0
+uvicorn[standard]>=0.30.0
+pydantic>=2.7.0
+python-dotenv>=1.0.0
+
+# Future dependencies (uncomment when needed)
+# redis>=5.0.0
+# asyncpg>=0.29.0
+# sqlalchemy[asyncio]>=2.0.0

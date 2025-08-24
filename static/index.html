@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Party Game Platform - Test Client</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+            padding: 24px;
+            margin-bottom: 20px;
+        }
+
+        h1, h2 {
+            color: #4a5568;
+            margin-bottom: 16px;
+        }
+
+        h1 {
+            text-align: center;
+            font-size: 2.5rem;
+            margin-bottom: 32px;
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #4a5568;
+        }
+
+        input, select, button {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.2s;
+        }
+
+        input:focus, select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        button {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 16px rgba(102, 126, 234, 0.4);
+        }
+
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 12px;
+        }
+
+        .button-group button {
+            flex: 1;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        .players-list {
+            background: #f7fafc;
+            border-radius: 8px;
+            padding: 16px;
+            margin: 16px 0;
+        }
+
+        .player {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .player:last-child {
+            border-bottom: none;
+        }
+
+        .player-name {
+            font-weight: 600;
+        }
+
+        .player-status {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .ready {
+            background: #48bb78;
+            color: white;
+        }
+
+        .not-ready {
+            background: #ed8936;
+            color: white;
+        }
+
+        .host-badge {
+            background: #667eea;
+            color: white;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 10px;
+            margin-left: 8px;
+        }
+
+        .game-area {
+            text-align: center;
+            padding: 40px;
+        }
+
+        .tap-button {
+            width: 200px;
+            height: 200px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #48bb78, #38a169);
+            color: white;
+            font-size: 24px;
+            font-weight: bold;
+            border: none;
+            cursor: pointer;
+            transition: all 0.1s;
+            margin: 20px auto;
+            display: block;
+        }
+
+        .tap-button:active {
+            transform: scale(0.95);
+            background: linear-gradient(135deg, #38a169, #2f855a);
+        }
+
+        .score-display {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #4a5568;
+            margin: 20px 0;
+        }
+
+        .timer {
+            font-size: 1.5rem;
+            color: #ed8936;
+            font-weight: bold;
+        }
+
+        .results {
+            background: #f7fafc;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+
+        .results h3 {
+            color: #4a5568;
+            margin-bottom: 16px;
+        }
+
+        .result-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .result-item:last-child {
+            border-bottom: none;
+        }
+
+        .winner {
+            background: linear-gradient(135deg, #ffd700, #ffed4e);
+            padding: 8px;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+
+        .status {
+            text-align: center;
+            padding: 12px;
+            border-radius: 8px;
+            margin: 16px 0;
+            font-weight: 600;
+        }
+
+        .status.info {
+            background: #bee3f8;
+            color: #2c5282;
+        }
+
+        .status.success {
+            background: #c6f6d5;
+            color: #22543d;
+        }
+
+        .status.error {
+            background: #fed7d7;
+            color: #742a2a;
+        }
+
+        .ws-status {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .ws-connected {
+            background: #48bb78;
+            color: white;
+        }
+
+        .ws-disconnected {
+            background: #e53e3e;
+            color: white;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 16px;
+            }
+            
+            h1 {
+                font-size: 2rem;
+            }
+            
+            .tap-button {
+                width: 150px;
+                height: 150px;
+                font-size: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="ws-status" id="wsStatus">Disconnected</div>
+    
+    <div class="container">
+        <h1>🎮 Party Game Platform</h1>
+        
+        <!-- Setup Screen -->
+        <div class="card" id="setupScreen">
+            <h2>Join the Fun!</h2>
+            <div class="form-group">
+                <label for="playerName">Your Name:</label>
+                <input type="text" id="playerName" placeholder="Enter your name" maxlength="20">
+            </div>
+            
+            <div class="button-group">
+                <button onclick="showCreateLobby()">Create Room</button>
+                <button onclick="showJoinLobby()">Join Room</button>
+            </div>
+            
+            <!-- Create Lobby Form -->
+            <div id="createForm" class="hidden" style="margin-top: 20px;">
+                <div class="form-group">
+                    <label for="lobbyName">Room Name:</label>
+                    <input type="text" id="lobbyName" placeholder="Enter room name" maxlength="20">
+                </div>
+                <button onclick="createLobby()">Create Room</button>
+            </div>
+            
+            <!-- Join Lobby Form -->
+            <div id="joinForm" class="hidden" style="margin-top: 20px;">
+                <div class="form-group">
+                    <label for="joinLobbyName">Room Name:</label>
+                    <input type="text" id="joinLobbyName" placeholder="Enter room name">
+                </div>
+                <button onclick="joinLobby()">Join Room</button>
+            </div>
+        </div>
+        
+        <!-- Lobby Screen -->
+        <div class="card hidden" id="lobbyScreen">
+            <h2 id="lobbyTitle">Room: </h2>
+            
+            <div class="players-list" id="playersList">
+                <!-- Players will be populated here -->
+            </div>
+            
+            <div class="button-group">
+                <button id="readyButton" onclick="toggleReady()">Ready Up</button>
+                <button id="startButton" class="hidden" onclick="startGame()">Start Game</button>
+            </div>
+            
+            <div style="margin-top: 16px;">
+                <label for="gameSelect">Game Mode:</label>
+                <select id="gameSelect">
+                    <option value="tap_gauntlet">Tap Gauntlet (10s)</option>
+                </select>
+            </div>
+            
+            <button onclick="leaveLobby()" style="margin-top: 16px; background: #e53e3e;">Leave Room</button>
+        </div>
+        
+        <!-- Game Screen -->
+        <div class="card hidden" id="gameScreen">
+            <h2 id="gameTitle">Tap Gauntlet</h2>
+            
+            <div class="game-area">
+                <div class="timer" id="gameTimer">Get Ready...</div>
+                <div class="score-display" id="scoreDisplay">0 taps</div>
+                
+                <button class="tap-button" id="tapButton" onclick="tap()" disabled>
+                    TAP!
+                </button>
+                
+                <div id="gameStatus" class="status info">Waiting for game to start...</div>
+            </div>
+        </div>
+        
+        <!-- Results Screen -->
+        <div class="card hidden" id="resultsScreen">
+            <h2>🏆 Game Results</h2>
+            
+            <div class="results" id="gameResults">
+                <!-- Results will be populated here -->
+            </div>
+            
+            <button onclick="backToLobby()">Back to Lobby</button>
+        </div>
+        
+        <div class="status info" id="statusMessage"></div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
