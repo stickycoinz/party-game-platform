@@ -703,22 +703,10 @@ async def _end_buzzer_trivia_game(lobby_name: str, manager):
     game_data.state = GameState.FINISHED
     game_data.end_time = time.time()
     
-    # Calculate scores based on buzzer positions
+    # Calculate final scores based on host-awarded points (no auto-scoring)
     scores = []
     for player in lobby.players:
-        score = 0
-        # Find this player's buzzer position
-        for buzzer in game_data.buzzers:
-            if buzzer["player"] == player.name:
-                # Award points: 1st = 3pts, 2nd = 2pts, 3rd = 1pt
-                if buzzer["position"] == 1:
-                    score = 3
-                elif buzzer["position"] == 2:
-                    score = 2
-                elif buzzer["position"] == 3:
-                    score = 1
-                break
-        
+        score = game_data.total_scores.get(player.name, 0)  # Only host-awarded points
         scores.append(PlayerScore(
             player_name=player.name,
             score=score,

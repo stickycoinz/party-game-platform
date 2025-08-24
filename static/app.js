@@ -514,9 +514,11 @@ class GameClient {
         document.getElementById('buzzerButton').disabled = false;
         document.getElementById('buzzerButton').style.background = '#ff6b6b';
         
+        // Always show countdown display during buzzer phase
+        document.getElementById('countdownDisplay').classList.remove('hidden');
+        
         // Show countdown if provided
         if (payload.countdown_seconds) {
-            document.getElementById('countdownDisplay').classList.remove('hidden');
             document.getElementById('countdownNumber').textContent = payload.countdown_seconds;
             this.startCountdown(payload.countdown_seconds);
         }
