@@ -5,7 +5,7 @@ from enum import Enum
 # Game State Enums
 class GameType(str, Enum):
     TAP_GAUNTLET = "tap_gauntlet"
-    REVERSE_TRIVIA = "reverse_trivia"
+    BUZZER_TRIVIA = "buzzer_trivia"
     IMPOSTOR_PROMPT = "impostor_prompt"
     SHOTGUN_ROULETTE = "shotgun_roulette"
 
@@ -54,16 +54,17 @@ class ImpostorPromptData(BaseGameData):
     votes: Dict[str, str] = {}  # voter -> voted_for
     revealed: bool = False
 
-# Reverse Trivia specific data
-class ReverseTriviaData(BaseGameData):
-    game_type: Literal[GameType.REVERSE_TRIVIA] = GameType.REVERSE_TRIVIA
-    current_answer: str = ""  # The answer players write questions for
-    submission_duration: int = 60  # Time to submit questions
-    voting_duration: int = 30  # Time to vote
+# Buzzer Trivia specific data
+class BuzzerTriviaData(BaseGameData):
+    game_type: Literal[GameType.BUZZER_TRIVIA] = GameType.BUZZER_TRIVIA
+    category_options: List[str] = []  # Categories to vote on
+    category_votes: Dict[str, str] = {}  # player -> category_voted_for
+    selected_category: str = ""  # Winning category
+    current_question: str = ""  # The trivia question
+    correct_answer: str = ""  # The correct answer
+    buzzers: List[Dict[str, Any]] = []  # [{"player": "name", "time": 123.45, "position": 1}]
     current_round: int = 1
     max_rounds: int = 3
-    submissions: Dict[str, str] = {}  # player -> question
-    votes: Dict[str, str] = {}  # voter -> voted_for_player
     round_scores: Dict[str, int] = {}  # player -> points this round
     total_scores: Dict[str, int] = {}  # player -> total points
 
@@ -76,7 +77,7 @@ class ShotgunRouletteData(BaseGameData):
     chamber_picks: Dict[str, int] = {}  # player -> chamber_index
 
 # Union type for all game data
-GameData = Union[TapGauntletData, ReverseTriviaData, ImpostorPromptData, ShotgunRouletteData]
+GameData = Union[TapGauntletData, BuzzerTriviaData, ImpostorPromptData, ShotgunRouletteData]
 
 # WebSocket Event Models
 class WSEventType(str, Enum):
@@ -168,15 +169,14 @@ class TapResponseAction(BaseModel):
     prompt_id: str
     timestamp: float
 
-# Game Action Types for Reverse Trivia
-class SubmitQuestionAction(BaseModel):
-    action: Literal["submit_question"] = "submit_question"
-    question: str
+# Game Action Types for Buzzer Trivia
+class VoteCategoryAction(BaseModel):
+    action: Literal["vote_category"] = "vote_category"
+    category: str
     timestamp: float
 
-class VoteAction(BaseModel):
-    action: Literal["vote"] = "vote"
-    voted_for: str  # player name
+class BuzzerAction(BaseModel):
+    action: Literal["buzz"] = "buzz"
     timestamp: float
 
 # Start Game Request

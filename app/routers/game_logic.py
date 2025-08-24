@@ -3,8 +3,8 @@ import time
 import random
 from typing import Dict, List
 from app.schemas.game import (
-    TapGauntletData, ReverseTriviaData, GameState, GameType, GameResults, PlayerScore,
-    WSEvent, WSEventType, TapAction, TapResponseAction, SubmitQuestionAction, VoteAction
+    TapGauntletData, BuzzerTriviaData, GameState, GameType, GameResults, PlayerScore,
+    WSEvent, WSEventType, TapAction, TapResponseAction, VoteCategoryAction, BuzzerAction
 )
 from app.schemas.lobby import Lobby
 from app.utils.storage import get_storage
@@ -289,58 +289,103 @@ async def _handle_tap_response(lobby_name: str, player_name: str, prompt_id: str
     
     await storage.set_lobby(lobby_name, lobby)
 
-# ===== REVERSE TRIVIA GAME =====
+# ===== BUZZER TRIVIA GAME =====
 
-# Reverse Trivia Answers Bank
-REVERSE_TRIVIA_ANSWERS = [
-    "Yellow fruit that monkeys supposedly love",
-    "What you wear on your feet", 
-    "The capital of France",
-    "Frozen water",
-    "The number of legs on a spider",
-    "Where you sleep at night",
-    "What bees make",
-    "The color of grass",
-    "What you use to write",
-    "The day after Friday"
+# Trivia Categories
+TRIVIA_CATEGORIES = [
+    "Movies & TV",
+    "Sports",
+    "Science",
+    "History",
+    "Food & Drink",
+    "Music",
+    "Geography",
+    "Animals"
 ]
 
-async def start_reverse_trivia(lobby_name: str, lobby: Lobby, manager) -> bool:
-    """Start a Reverse Trivia game."""
+# Trivia Questions Bank
+TRIVIA_QUESTIONS = {
+    "Movies & TV": [
+        {"question": "What movie features the line 'May the Force be with you'?", "answer": "Star Wars"},
+        {"question": "Which TV show features a chemistry teacher turned meth cook?", "answer": "Breaking Bad"},
+        {"question": "Who directed the movie 'Jaws'?", "answer": "Steven Spielberg"},
+    ],
+    "Sports": [
+        {"question": "How many players are on a basketball team on the court at once?", "answer": "5"},
+        {"question": "What sport is played at Wimbledon?", "answer": "Tennis"},
+        {"question": "Which country won the 2018 FIFA World Cup?", "answer": "France"},
+    ],
+    "Science": [
+        {"question": "What is the chemical symbol for gold?", "answer": "Au"},
+        {"question": "How many bones are in an adult human body?", "answer": "206"},
+        {"question": "What planet is known as the Red Planet?", "answer": "Mars"},
+    ],
+    "History": [
+        {"question": "In which year did World War II end?", "answer": "1945"},
+        {"question": "Who was the first person to walk on the moon?", "answer": "Neil Armstrong"},
+        {"question": "Which ancient wonder was located in Alexandria?", "answer": "Lighthouse of Alexandria"},
+    ],
+    "Food & Drink": [
+        {"question": "What spice is derived from the Crocus flower?", "answer": "Saffron"},
+        {"question": "Which country is famous for inventing pizza?", "answer": "Italy"},
+        {"question": "What is the main ingredient in guacamole?", "answer": "Avocado"},
+    ],
+    "Music": [
+        {"question": "Which instrument has 88 keys?", "answer": "Piano"},
+        {"question": "Who composed 'The Four Seasons'?", "answer": "Vivaldi"},
+        {"question": "What does 'forte' mean in music?", "answer": "Loud"},
+    ],
+    "Geography": [
+        {"question": "What is the capital of Australia?", "answer": "Canberra"},
+        {"question": "Which river is the longest in the world?", "answer": "Nile"},
+        {"question": "How many continents are there?", "answer": "7"},
+    ],
+    "Animals": [
+        {"question": "What is the largest mammal in the world?", "answer": "Blue Whale"},
+        {"question": "How many hearts does an octopus have?", "answer": "3"},
+        {"question": "What is a group of lions called?", "answer": "Pride"},
+    ]
+}
+
+async def start_buzzer_trivia(lobby_name: str, lobby: Lobby, manager) -> bool:
+    """Start a Buzzer Trivia game."""
     if lobby.game_state != GameState.WAITING:
         return False
-    
+
+    # Pick 3 random categories for voting
+    selected_categories = random.sample(TRIVIA_CATEGORIES, 3)
+
     # Initialize game data
-    game_data = ReverseTriviaData(
+    game_data = BuzzerTriviaData(
         state=GameState.STARTING,
         start_time=time.time(),
-        current_answer=random.choice(REVERSE_TRIVIA_ANSWERS),
+        category_options=selected_categories,
         total_scores={player.name: 0 for player in lobby.players}
     )
-    
+
     lobby.current_game = game_data
     lobby.game_state = GameState.STARTING
-    
+
     storage = await get_storage()
     await storage.set_lobby(lobby_name, lobby)
-    
+
     # Broadcast game start
     await manager.broadcast_to_lobby(lobby_name, WSEvent(
         type=WSEventType.GAME_STARTED,
         payload={
-            "game_type": GameType.REVERSE_TRIVIA,
-            "message": "Reverse Trivia time! I give the answer, you write the question!",
+            "game_type": GameType.BUZZER_TRIVIA,
+            "message": "🔔 Buzzer Trivia! First, vote for a category!",
             "countdown": 3
         },
         timestamp=time.time()
     ))
-    
+
     # Start game loop
-    asyncio.create_task(_run_reverse_trivia_game(lobby_name, manager))
+    asyncio.create_task(_run_buzzer_trivia_game(lobby_name, manager))
     return True
 
-async def _run_reverse_trivia_game(lobby_name: str, manager):
-    """Run the Reverse Trivia game loop."""
+async def _run_buzzer_trivia_game(lobby_name: str, manager):
+    """Run the Buzzer Trivia game loop."""
     # Simple 3 second countdown
     for i in range(3, 0, -1):
         await manager.broadcast_to_lobby(lobby_name, WSEvent(
@@ -349,182 +394,228 @@ async def _run_reverse_trivia_game(lobby_name: str, manager):
             timestamp=time.time()
         ))
         await asyncio.sleep(1)
-    
-    # Start first round
-    await _start_trivia_round(lobby_name, manager)
 
-async def _start_voting_phase(lobby_name: str, manager):
-    """Start the voting phase."""
+    # Start category voting
+    await _start_category_voting(lobby_name, manager)
+
+async def _start_category_voting(lobby_name: str, manager):
+    """Start the category voting phase."""
     storage = await get_storage()
     lobby = await storage.get_lobby(lobby_name)
-    
-    if not lobby or not isinstance(lobby.current_game, ReverseTriviaData):
+
+    if not lobby or not isinstance(lobby.current_game, BuzzerTriviaData):
         return
-    
+
     game_data = lobby.current_game
-    
-    # Check if we have submissions
-    if not game_data.submissions:
-        # No submissions, end game
-        await _end_reverse_trivia_game(lobby_name, manager)
-        return
-    
-    # Show voting phase
+
+    # Show category voting
     await manager.broadcast_to_lobby(lobby_name, WSEvent(
         type=WSEventType.GAME_STATE,
         payload={
-            "phase": "voting",
-            "answer": game_data.current_answer,
-            "submissions": [
-                {"player": player, "question": question}
-                for player, question in game_data.submissions.items()
-            ],
-            "message": "Vote for the best question!",
-            "time_limit": 20
+            "phase": "category_voting",
+            "categories": game_data.category_options,
+            "message": "Vote for a trivia category!",
+            "time_limit": 15
         },
         timestamp=time.time()
     ))
-    
-    # Wait 20 seconds for voting
-    await asyncio.sleep(20)
-    
-    # Show round results
-    await _show_round_results(lobby_name, manager)
 
-async def _show_round_results(lobby_name: str, manager):
-    """Calculate and display round results."""
+    # Wait 15 seconds for voting
+    await asyncio.sleep(15)
+
+    # Determine winning category
+    await _select_winning_category(lobby_name, manager)
+
+async def _select_winning_category(lobby_name: str, manager):
+    """Select the winning category and start the trivia round."""
     storage = await get_storage()
     lobby = await storage.get_lobby(lobby_name)
     
-    if not lobby or not isinstance(lobby.current_game, ReverseTriviaData):
+    if not lobby or not isinstance(lobby.current_game, BuzzerTriviaData):
         return
     
     game_data = lobby.current_game
     
     # Count votes
     vote_counts = {}
-    for voted_for in game_data.votes.values():
-        vote_counts[voted_for] = vote_counts.get(voted_for, 0) + 1
+    for voted_category in game_data.category_votes.values():
+        vote_counts[voted_category] = vote_counts.get(voted_category, 0) + 1
     
-    # Calculate scores (1 point per vote received)
-    for player in lobby.players:
-        votes = vote_counts.get(player.name, 0)
-        game_data.round_scores[player.name] = votes
-        game_data.total_scores[player.name] = game_data.total_scores.get(player.name, 0) + votes
+    # Select winning category (most votes, or random if tie)
+    if vote_counts:
+        max_votes = max(vote_counts.values())
+        winners = [cat for cat, votes in vote_counts.items() if votes == max_votes]
+        game_data.selected_category = random.choice(winners)
+    else:
+        # No votes, pick random
+        game_data.selected_category = random.choice(game_data.category_options)
     
-    # Find round winner
-    round_winner = max(vote_counts.items(), key=lambda x: x[1])[0] if vote_counts else None
+    # Pick a random question from the winning category
+    questions = TRIVIA_QUESTIONS.get(game_data.selected_category, [])
+    if questions:
+        selected_q = random.choice(questions)
+        game_data.current_question = selected_q["question"]
+        game_data.correct_answer = selected_q["answer"]
     
     await storage.set_lobby(lobby_name, lobby)
     
-    # Show results
+    # Show the category result and start the buzzer round
     await manager.broadcast_to_lobby(lobby_name, WSEvent(
         type=WSEventType.GAME_STATE,
         payload={
-            "phase": "results",
-            "round": game_data.current_round,
-            "round_winner": round_winner,
-            "submissions": [
-                {"player": p, "question": q, "votes": vote_counts.get(p, 0)}
-                for p, q in game_data.submissions.items()
-            ],
-            "total_scores": game_data.total_scores
+            "phase": "category_result",
+            "selected_category": game_data.selected_category,
+            "message": f"📊 Category chosen: {game_data.selected_category}",
+        },
+        timestamp=time.time()
+    ))
+    
+    await asyncio.sleep(3)  # Show category for 3 seconds
+    
+    # Start the buzzer round
+    await _start_buzzer_round(lobby_name, manager)
+
+async def _start_buzzer_round(lobby_name: str, manager):
+    """Start the buzzer round with the trivia question."""
+    try:
+        storage = await get_storage()
+        lobby = await storage.get_lobby(lobby_name)
+        
+        if not lobby or not isinstance(lobby.current_game, BuzzerTriviaData):
+            print(f"Invalid lobby or game data for {lobby_name}")
+            return
+        
+        game_data = lobby.current_game
+        game_data.buzzers = []  # Reset buzzers for this round
+        
+        await storage.set_lobby(lobby_name, lobby)
+        
+        # Show the trivia question
+        await manager.broadcast_to_lobby(lobby_name, WSEvent(
+            type=WSEventType.GAME_STATE,
+            payload={
+                "phase": "buzzer_question",
+                "round": game_data.current_round,
+                "category": game_data.selected_category,
+                "question": game_data.current_question,
+                "message": f"Round {game_data.current_round}: Get ready to buzz in!",
+            },
+            timestamp=time.time()
+        ))
+        
+        # Wait 3 seconds for players to read the question
+        await asyncio.sleep(3)
+        
+        # Activate buzzers
+        await manager.broadcast_to_lobby(lobby_name, WSEvent(
+            type=WSEventType.GAME_STATE,
+            payload={
+                "phase": "buzzer_active",
+                "message": "🔔 BUZZERS ACTIVE! First to buzz gets to answer!",
+            },
+            timestamp=time.time()
+        ))
+        
+        # Wait for buzzers or timeout after 30 seconds
+        start_time = time.time()
+        while time.time() - start_time < 30:
+            # Check if someone buzzed
+            lobby = await storage.get_lobby(lobby_name)
+            if lobby and isinstance(lobby.current_game, BuzzerTriviaData):
+                game_data = lobby.current_game
+                if game_data.buzzers:
+                    # Someone buzzed! Show results
+                    await _show_buzzer_results(lobby_name, manager)
+                    return
+            await asyncio.sleep(0.1)  # Check every 100ms
+        
+        # Timeout - no one buzzed
+        await manager.broadcast_to_lobby(lobby_name, WSEvent(
+            type=WSEventType.GAME_STATE,
+            payload={
+                "phase": "timeout",
+                "message": f"⏰ Time's up! The answer was: {game_data.correct_answer}",
+            },
+            timestamp=time.time()
+        ))
+        
+        await asyncio.sleep(3)
+        
+        # End game for now (can extend to multiple rounds later)
+        await _end_buzzer_trivia_game(lobby_name, manager)
+        
+    except Exception as e:
+        print(f"Error in _start_buzzer_round: {e}")
+        await _end_buzzer_trivia_game(lobby_name, manager)
+
+async def _show_buzzer_results(lobby_name: str, manager):
+    """Show who buzzed in first and their ranking."""
+    storage = await get_storage()
+    lobby = await storage.get_lobby(lobby_name)
+    
+    if not lobby or not isinstance(lobby.current_game, BuzzerTriviaData):
+        return
+    
+    game_data = lobby.current_game
+    
+    # Sort buzzers by time (earliest first)
+    game_data.buzzers.sort(key=lambda x: x["time"])
+    
+    # Assign positions
+    for i, buzzer in enumerate(game_data.buzzers):
+        buzzer["position"] = i + 1
+    
+    await storage.set_lobby(lobby_name, lobby)
+    
+    # Show buzzer results
+    await manager.broadcast_to_lobby(lobby_name, WSEvent(
+        type=WSEventType.GAME_STATE,
+        payload={
+            "phase": "buzzer_results",
+            "question": game_data.current_question,
+            "correct_answer": game_data.correct_answer,
+            "buzzers": game_data.buzzers,
+            "message": f"🏆 {game_data.buzzers[0]['player']} buzzed in first!" if game_data.buzzers else "No one buzzed in!",
         },
         timestamp=time.time()
     ))
     
     await asyncio.sleep(5)  # Show results for 5 seconds
     
-    # Check if game is over
-    if game_data.current_round >= game_data.max_rounds:
-        await _end_reverse_trivia_game(lobby_name, manager)
-    else:
-        # Start next round
-        game_data.current_round += 1
-        game_data.current_answer = random.choice(REVERSE_TRIVIA_ANSWERS)
-        await storage.set_lobby(lobby_name, lobby)
-        await _start_trivia_round(lobby_name, manager)
+    # End game for now
+    await _end_buzzer_trivia_game(lobby_name, manager)
 
-async def _start_trivia_round(lobby_name: str, manager):
-    """Start a new round of trivia."""
-    try:
-        storage = await get_storage()
-        lobby = await storage.get_lobby(lobby_name)
-        
-        if not lobby or not isinstance(lobby.current_game, ReverseTriviaData):
-            print(f"Invalid lobby or game data for {lobby_name}")
-            return
-        
-        game_data = lobby.current_game
-        game_data.submissions = {}
-        game_data.votes = {}
-        game_data.round_scores = {}
-        
-        await storage.set_lobby(lobby_name, lobby)
-        
-        # Show the answer and ask for questions
-        await manager.broadcast_to_lobby(lobby_name, WSEvent(
-            type=WSEventType.GAME_STATE,
-            payload={
-                "phase": "submission",
-                "round": game_data.current_round,
-                "answer": game_data.current_answer,
-                "message": f"Round {game_data.current_round}: Write a question for: {game_data.current_answer}",
-                "time_limit": 30
-            },
-            timestamp=time.time()
-        ))
-        
-        # Wait 30 seconds for submissions
-        await asyncio.sleep(30)
-        
-        # Show what submissions we got, then end the game
-        lobby = await storage.get_lobby(lobby_name)
-        if lobby and isinstance(lobby.current_game, ReverseTriviaData):
-            game_data = lobby.current_game
-            
-            # Show submissions before ending
-            if game_data.submissions:
-                await manager.broadcast_to_lobby(lobby_name, WSEvent(
-                    type=WSEventType.GAME_STATE,
-                    payload={
-                        "phase": "review",
-                        "submissions": [
-                            {"player": player, "question": question}
-                            for player, question in game_data.submissions.items()
-                        ],
-                        "message": "Here's what everyone submitted!"
-                    },
-                    timestamp=time.time()
-                ))
-                await asyncio.sleep(3)  # Show for 3 seconds
-        
-        await _end_reverse_trivia_game(lobby_name, manager)
-        
-    except Exception as e:
-        print(f"Error in _start_trivia_round: {e}")
-        # End game on error
-        await _end_reverse_trivia_game(lobby_name, manager)
-
-async def _end_reverse_trivia_game(lobby_name: str, manager):
-    """End the game and show final results."""
+async def _end_buzzer_trivia_game(lobby_name: str, manager):
+    """End the buzzer trivia game and show final results."""
     storage = await get_storage()
     lobby = await storage.get_lobby(lobby_name)
     
-    if not lobby or not isinstance(lobby.current_game, ReverseTriviaData):
+    if not lobby or not isinstance(lobby.current_game, BuzzerTriviaData):
         return
     
     game_data = lobby.current_game
     game_data.state = GameState.FINISHED
     game_data.end_time = time.time()
     
-    # Calculate final results
+    # Calculate scores based on buzzer positions
     scores = []
     for player in lobby.players:
-        total_score = game_data.total_scores.get(player.name, 0)
+        score = 0
+        # Find this player's buzzer position
+        for buzzer in game_data.buzzers:
+            if buzzer["player"] == player.name:
+                # Award points: 1st = 3pts, 2nd = 2pts, 3rd = 1pt
+                if buzzer["position"] == 1:
+                    score = 3
+                elif buzzer["position"] == 2:
+                    score = 2
+                elif buzzer["position"] == 3:
+                    score = 1
+                break
+        
         scores.append(PlayerScore(
             player_name=player.name,
-            score=total_score,
+            score=score,
             position=0
         ))
     
@@ -534,10 +625,10 @@ async def _end_reverse_trivia_game(lobby_name: str, manager):
         score.position = i + 1
     
     # Determine winner
-    winner = scores[0].player_name if scores else None
+    winner = scores[0].player_name if scores and scores[0].score > 0 else None
     
     results = GameResults(
-        game_type=GameType.REVERSE_TRIVIA,
+        game_type=GameType.BUZZER_TRIVIA,
         winner=winner,
         scores=scores,
         duration_seconds=game_data.end_time - game_data.start_time
@@ -560,38 +651,57 @@ async def _end_reverse_trivia_game(lobby_name: str, manager):
         timestamp=time.time()
     ))
 
-async def handle_reverse_trivia_action(lobby_name: str, player_name: str, action: str, payload: dict, manager):
-    """Handle Reverse Trivia specific actions."""
+async def handle_buzzer_trivia_action(lobby_name: str, player_name: str, action: str, payload: dict, manager):
+    """Handle Buzzer Trivia specific actions."""
     storage = await get_storage()
     lobby = await storage.get_lobby(lobby_name)
     
-    if not lobby or not isinstance(lobby.current_game, ReverseTriviaData):
+    if not lobby or not isinstance(lobby.current_game, BuzzerTriviaData):
         return
     
     game_data = lobby.current_game
     
-    if action == "submit_question":
-        question = payload.get("question", "").strip()
-        if question and len(question) <= 200:  # Reasonable length limit
-            game_data.submissions[player_name] = question
-            await storage.set_lobby(lobby_name, lobby)
-            
-            # Confirm submission
-            await manager.send_to_player(lobby_name, player_name, WSEvent(
-                type=WSEventType.GAME_STATE,
-                payload={"submission_confirmed": True},
-                timestamp=time.time()
-            ))
-    
-    elif action == "vote":
-        voted_for = payload.get("voted_for")
-        if voted_for and voted_for != player_name and voted_for in game_data.submissions:
-            game_data.votes[player_name] = voted_for
+    if action == "vote_category":
+        category = payload.get("category")
+        if category and category in game_data.category_options:
+            game_data.category_votes[player_name] = category
             await storage.set_lobby(lobby_name, lobby)
             
             # Confirm vote
             await manager.send_to_player(lobby_name, player_name, WSEvent(
                 type=WSEventType.GAME_STATE,
-                payload={"vote_confirmed": True},
+                payload={"category_vote_confirmed": True, "voted_category": category},
+                timestamp=time.time()
+            ))
+    
+    elif action == "buzz":
+        buzz_time = payload.get("timestamp", time.time())
+        
+        # Check if player already buzzed
+        player_already_buzzed = any(b["player"] == player_name for b in game_data.buzzers)
+        if not player_already_buzzed:
+            game_data.buzzers.append({
+                "player": player_name,
+                "time": buzz_time,
+                "position": 0  # Will be calculated later
+            })
+            
+            await storage.set_lobby(lobby_name, lobby)
+            
+            # Confirm buzz
+            await manager.send_to_player(lobby_name, player_name, WSEvent(
+                type=WSEventType.GAME_STATE,
+                payload={"buzz_confirmed": True},
+                timestamp=time.time()
+            ))
+            
+            # Broadcast to everyone that someone buzzed
+            await manager.broadcast_to_lobby(lobby_name, WSEvent(
+                type=WSEventType.GAME_STATE,
+                payload={
+                    "phase": "player_buzzed",
+                    "buzzer_player": player_name,
+                    "message": f"🔔 {player_name} buzzed in!"
+                },
                 timestamp=time.time()
             ))

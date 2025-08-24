@@ -348,8 +348,8 @@ class GameClient {
         
         if (payload.game_type === 'tap_gauntlet') {
             this.setupTapGauntletUI(payload);
-        } else if (payload.game_type === 'reverse_trivia') {
-            this.setupReverseTriviaUI(payload);
+        } else if (payload.game_type === 'buzzer_trivia') {
+            this.setupBuzzerTriviaUI(payload);
         }
     }
     
@@ -365,13 +365,13 @@ class GameClient {
         document.getElementById('tapButton').disabled = true;
     }
     
-    setupReverseTriviaUI(payload) {
-        document.getElementById('gameTitle').textContent = '🃏 Reverse Trivia';
+    setupBuzzerTriviaUI(payload) {
+        document.getElementById('gameTitle').textContent = '🔔 Buzzer Trivia';
         document.getElementById('tapGameArea').classList.add('hidden');
-        document.getElementById('triviaGameArea').classList.remove('hidden');
+        document.getElementById('buzzerGameArea').classList.remove('hidden');
         
-        document.getElementById('triviaTimer').textContent = payload.message || 'Get ready...';
-        this.hideAllTriviaPhases();
+        document.getElementById('buzzerTimer').textContent = payload.message || 'Get ready...';
+        this.hideAllBuzzerPhases();
     }
     
     updateGameState(payload) {
@@ -397,154 +397,151 @@ class GameClient {
             });
         }
         
-        // Handle Reverse Trivia states
-        if (payload.phase === 'submission') {
-            this.showSubmissionPhase(payload);
-        } else if (payload.phase === 'voting') {
-            this.showVotingPhase(payload);
-        } else if (payload.phase === 'results') {
-            this.showResultsPhase(payload);
-        } else if (payload.phase === 'review') {
-            this.showReviewPhase(payload);
+        // Handle Buzzer Trivia states
+        if (payload.phase === 'category_voting') {
+            this.showCategoryVotingPhase(payload);
+        } else if (payload.phase === 'category_result') {
+            this.showCategoryResult(payload);
+        } else if (payload.phase === 'buzzer_question') {
+            this.showBuzzerQuestion(payload);
+        } else if (payload.phase === 'buzzer_active') {
+            this.showBuzzerActive(payload);
+        } else if (payload.phase === 'player_buzzed') {
+            this.showPlayerBuzzed(payload);
+        } else if (payload.phase === 'buzzer_results') {
+            this.showBuzzerResults(payload);
+        } else if (payload.phase === 'timeout') {
+            this.showTimeout(payload);
         }
         
-        if (payload.submission_confirmed) {
-            document.getElementById('submissionStatus').textContent = '✅ Question submitted!';
+        if (payload.category_vote_confirmed) {
+            document.getElementById('categoryVotingStatus').textContent = `✅ Voted for ${payload.voted_category}!`;
         }
         
-        if (payload.vote_confirmed) {
-            document.getElementById('votingStatus').textContent = '✅ Vote cast!';
+        if (payload.buzz_confirmed) {
+            document.getElementById('buzzStatus').textContent = '✅ Buzzed in!';
+            document.getElementById('buzzerButton').disabled = true;
         }
     }
     
-    hideAllTriviaPhases() {
-        document.getElementById('submissionPhase').classList.add('hidden');
-        document.getElementById('votingPhase').classList.add('hidden');
-        document.getElementById('resultsPhase').classList.add('hidden');
+    hideAllBuzzerPhases() {
+        document.getElementById('categoryVotingPhase').classList.add('hidden');
+        document.getElementById('questionPhase').classList.add('hidden');
+        document.getElementById('buzzerResultsPhase').classList.add('hidden');
+        document.getElementById('buzzerSection').classList.add('hidden');
     }
     
-    showSubmissionPhase(payload) {
-        this.hideAllTriviaPhases();
-        document.getElementById('submissionPhase').classList.remove('hidden');
+    showCategoryVotingPhase(payload) {
+        this.hideAllBuzzerPhases();
+        document.getElementById('categoryVotingPhase').classList.remove('hidden');
         
-        document.getElementById('triviaAnswer').textContent = `The Answer: ${payload.answer}`;
-        document.getElementById('triviaTimer').textContent = payload.message;
-        document.getElementById('questionInput').value = '';
-        document.getElementById('submissionStatus').textContent = '';
-    }
-    
-    showVotingPhase(payload) {
-        this.hideAllTriviaPhases();
-        document.getElementById('votingPhase').classList.remove('hidden');
+        document.getElementById('buzzerTimer').textContent = payload.message;
         
-        document.getElementById('votingAnswer').textContent = `Answer: ${payload.answer}`;
-        document.getElementById('triviaTimer').textContent = payload.message;
+        const categoriesList = document.getElementById('categoriesList');
+        categoriesList.innerHTML = '';
         
-        const submissionsList = document.getElementById('submissionsList');
-        submissionsList.innerHTML = '';
-        
-        payload.submissions.forEach(submission => {
-            if (submission.player !== this.currentPlayer) {  // Can't vote for yourself
-                const button = document.createElement('button');
-                button.textContent = `"${submission.question}" - ${submission.player}`;
-                button.style.cssText = 'width: 100%; margin: 8px 0; padding: 12px; text-align: left;';
-                button.onclick = () => this.voteForQuestion(submission.player);
-                submissionsList.appendChild(button);
-            }
+        payload.categories.forEach(category => {
+            const button = document.createElement('button');
+            button.textContent = category;
+            button.style.cssText = 'width: 100%; margin: 8px 0; padding: 12px; font-size: 16px;';
+            button.onclick = () => this.voteForCategory(category);
+            categoriesList.appendChild(button);
         });
         
-        document.getElementById('votingStatus').textContent = '';
+        document.getElementById('categoryVotingStatus').textContent = '';
     }
     
-    showResultsPhase(payload) {
-        this.hideAllTriviaPhases();
-        document.getElementById('resultsPhase').classList.remove('hidden');
+    showCategoryResult(payload) {
+        document.getElementById('buzzerTimer').textContent = payload.message;
+    }
+    
+    showBuzzerQuestion(payload) {
+        this.hideAllBuzzerPhases();
+        document.getElementById('questionPhase').classList.remove('hidden');
         
-        document.getElementById('triviaTimer').textContent = `Round ${payload.round} Results`;
+        document.getElementById('triviaCategory').textContent = `Category: ${payload.category}`;
+        document.getElementById('triviaQuestion').textContent = payload.question;
+        document.getElementById('buzzerTimer').textContent = payload.message;
+        document.getElementById('buzzStatus').textContent = '';
+    }
+    
+    showBuzzerActive(payload) {
+        document.getElementById('buzzerSection').classList.remove('hidden');
+        document.getElementById('buzzerTimer').textContent = payload.message;
+        document.getElementById('buzzerButton').disabled = false;
+        document.getElementById('buzzerButton').style.background = '#ff6b6b';
+    }
+    
+    showPlayerBuzzed(payload) {
+        if (payload.buzzer_player !== this.currentPlayer) {
+            document.getElementById('buzzerButton').disabled = true;
+            document.getElementById('buzzerButton').style.background = '#666';
+        }
+        document.getElementById('buzzerTimer').textContent = payload.message;
+    }
+    
+    showBuzzerResults(payload) {
+        this.hideAllBuzzerPhases();
+        document.getElementById('buzzerResultsPhase').classList.remove('hidden');
         
-        const resultsDiv = document.getElementById('roundResults');
+        document.getElementById('buzzerTimer').textContent = payload.message;
+        
+        const resultsDiv = document.getElementById('buzzerResults');
         resultsDiv.innerHTML = '';
         
-        if (payload.round_winner) {
-            const winnerDiv = document.createElement('div');
-            winnerDiv.className = 'winner';
-            winnerDiv.textContent = `🏆 Round Winner: ${payload.round_winner}`;
-            resultsDiv.appendChild(winnerDiv);
-        }
+        // Show question and answer
+        const questionDiv = document.createElement('div');
+        questionDiv.style.marginBottom = '16px';
+        questionDiv.innerHTML = `
+            <p><strong>Q:</strong> ${payload.question}</p>
+            <p><strong>A:</strong> ${payload.correct_answer}</p>
+        `;
+        resultsDiv.appendChild(questionDiv);
         
-        payload.submissions.forEach(submission => {
-            const submissionDiv = document.createElement('div');
-            submissionDiv.className = 'result-item';
-            submissionDiv.innerHTML = `
-                <span>"${submission.question}" - ${submission.player}</span>
-                <span>${submission.votes} votes</span>
-            `;
-            resultsDiv.appendChild(submissionDiv);
-        });
-        
-        // Show total scores
-        if (payload.total_scores) {
-            const scoresDiv = document.createElement('div');
-            scoresDiv.style.marginTop = '16px';
-            scoresDiv.innerHTML = '<h4>Total Scores:</h4>';
+        // Show buzzer order
+        if (payload.buzzers && payload.buzzers.length > 0) {
+            const buzzersDiv = document.createElement('div');
+            buzzersDiv.innerHTML = '<h4>Buzzer Order:</h4>';
             
-            Object.entries(payload.total_scores)
-                .sort(([,a], [,b]) => b - a)
-                .forEach(([player, score]) => {
-                    const scoreDiv = document.createElement('div');
-                    scoreDiv.className = 'result-item';
-                    scoreDiv.innerHTML = `<span>${player}</span><span>${score} points</span>`;
-                    scoresDiv.appendChild(scoreDiv);
-                });
+            payload.buzzers.forEach((buzzer, index) => {
+                const buzzerDiv = document.createElement('div');
+                buzzerDiv.className = 'result-item';
+                const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `${index + 1}.`;
+                buzzerDiv.innerHTML = `
+                    <span>${medal} ${buzzer.player}</span>
+                    <span>${buzzer.position === 1 ? '3 pts' : buzzer.position === 2 ? '2 pts' : buzzer.position === 3 ? '1 pt' : '0 pts'}</span>
+                `;
+                buzzersDiv.appendChild(buzzerDiv);
+            });
             
-            resultsDiv.appendChild(scoresDiv);
+            resultsDiv.appendChild(buzzersDiv);
         }
     }
     
-    submitQuestion() {
-        const question = document.getElementById('questionInput').value.trim();
-        if (!question) {
-            document.getElementById('submissionStatus').textContent = 'Please write a question!';
-            return;
-        }
-        
+    showTimeout(payload) {
+        document.getElementById('buzzerTimer').textContent = payload.message;
+        document.getElementById('buzzerButton').disabled = true;
+        document.getElementById('buzzerButton').style.background = '#666';
+    }
+    
+    voteForCategory(category) {
         this.sendWebSocketMessage('game_action', {
-            action: 'submit_question',
-            question: question,
+            action: 'vote_category',
+            category: category,
             timestamp: Date.now() / 1000
         });
         
-        document.getElementById('submissionStatus').textContent = 'Submitting...';
+        document.getElementById('categoryVotingStatus').textContent = `Voting for ${category}...`;
     }
     
-    voteForQuestion(playerName) {
+    buzz() {
         this.sendWebSocketMessage('game_action', {
-            action: 'vote',
-            voted_for: playerName,
+            action: 'buzz',
             timestamp: Date.now() / 1000
         });
         
-        document.getElementById('votingStatus').textContent = `Voting for ${playerName}...`;
-    }
-    
-    showReviewPhase(payload) {
-        this.hideAllTriviaPhases();
-        document.getElementById('resultsPhase').classList.remove('hidden');
-        
-        document.getElementById('triviaTimer').textContent = payload.message;
-        
-        const resultsDiv = document.getElementById('roundResults');
-        resultsDiv.innerHTML = '<h4>Submitted Questions:</h4>';
-        
-        payload.submissions.forEach(submission => {
-            const submissionDiv = document.createElement('div');
-            submissionDiv.className = 'result-item';
-            submissionDiv.innerHTML = `
-                <span>"${submission.question}"</span>
-                <span>${submission.player}</span>
-            `;
-            resultsDiv.appendChild(submissionDiv);
-        });
+        document.getElementById('buzzStatus').textContent = 'Buzzing in...';
+        document.getElementById('buzzerButton').disabled = true;
     }
     
     updateGameTick(payload) {
@@ -583,8 +580,8 @@ class GameClient {
         
         const resultsEl = document.getElementById('gameResults');
         
-        if (results.game_type === 'reverse_trivia') {
-            resultsEl.innerHTML = '<h3>🃏 Reverse Trivia Results</h3>';
+        if (results.game_type === 'buzzer_trivia') {
+            resultsEl.innerHTML = '<h3>🔔 Buzzer Trivia Results</h3>';
             
             results.scores.forEach(score => {
                 const resultEl = document.createElement('div');
@@ -595,14 +592,14 @@ class GameClient {
                 
                 resultEl.innerHTML = `
                     <span>#${score.position} ${score.player_name}</span>
-                    <span>${score.score} votes</span>
+                    <span>${score.score} points</span>
                 `;
                 
                 resultsEl.appendChild(resultEl);
             });
             
             if (results.winner) {
-                this.updateStatus(`🏆 ${results.winner} wins Reverse Trivia with ${results.scores[0].score} votes!`, 'success');
+                this.updateStatus(`🏆 ${results.winner} wins Buzzer Trivia with ${results.scores[0].score} points!`, 'success');
             }
         } else {
             // Tap Gauntlet results
@@ -699,12 +696,8 @@ function leaveLobby() {
     window.gameClient.leaveLobby();
 }
 
-function submitQuestion() {
-    window.gameClient.submitQuestion();
-}
-
-function voteForQuestion(playerName) {
-    window.gameClient.voteForQuestion(playerName);
+function buzz() {
+    window.gameClient.buzz();
 }
 
 // Initialize the game client when page loads

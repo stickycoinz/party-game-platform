@@ -329,13 +329,13 @@
                 <button id="startButton" class="hidden" onclick="startGame()">Start Game</button>
             </div>
             
-            <div style="margin-top: 16px;">
-                <label for="gameSelect">Game Mode:</label>
-                <select id="gameSelect">
-                    <option value="tap_gauntlet">Tap Gauntlet (10s)</option>
-                    <option value="reverse_trivia">🃏 Reverse Trivia</option>
-                </select>
-            </div>
+                    <div style="margin-top: 16px;">
+            <label for="gameSelect">Game Mode:</label>
+            <select id="gameSelect">
+                <option value="tap_gauntlet">Tap Gauntlet (10s)</option>
+                <option value="buzzer_trivia">🔔 Buzzer Trivia</option>
+            </select>
+        </div>
             
             <button onclick="leaveLobby()" style="margin-top: 16px; background: #e53e3e;">Leave Room</button>
         </div>
@@ -356,32 +356,34 @@
                 <div id="gameStatus" class="status info">Waiting for game to start...</div>
             </div>
             
-            <!-- Reverse Trivia UI -->
-            <div class="game-area hidden" id="triviaGameArea">
-                <div class="timer" id="triviaTimer">Get Ready...</div>
+                        <!-- Buzzer Trivia UI -->
+            <div class="game-area hidden" id="buzzerGameArea">
+                <div class="timer" id="buzzerTimer">Get Ready...</div>
                 
-                <!-- Submission Phase -->
-                <div id="submissionPhase" class="hidden">
-                    <h3 id="triviaAnswer">The Answer: ...</h3>
-                    <p style="margin: 16px 0;">Write the best question for this answer:</p>
-                    <textarea id="questionInput" placeholder="What is...?" maxlength="200" 
-                             style="width: 100%; height: 80px; padding: 12px; border-radius: 8px; border: 2px solid #e2e8f0; resize: vertical;"></textarea>
-                    <button onclick="submitQuestion()" style="margin-top: 12px;">Submit Question</button>
-                    <div id="submissionStatus" class="status info" style="margin-top: 12px;"></div>
+                <!-- Category Voting Phase -->
+                <div id="categoryVotingPhase" class="hidden">
+                    <h3>Vote for a Trivia Category!</h3>
+                    <div id="categoriesList"></div>
+                    <div id="categoryVotingStatus" class="status info" style="margin-top: 12px;"></div>
                 </div>
                 
-                <!-- Voting Phase -->
-                <div id="votingPhase" class="hidden">
-                    <h3>Vote for the Best Question!</h3>
-                    <p id="votingAnswer" style="margin: 16px 0;">Answer: ...</p>
-                    <div id="submissionsList"></div>
-                    <div id="votingStatus" class="status info" style="margin-top: 12px;"></div>
+                <!-- Question Phase -->
+                <div id="questionPhase" class="hidden">
+                    <h3 id="triviaCategory">Category: ...</h3>
+                    <p id="triviaQuestion" style="margin: 16px 0; font-size: 18px; font-weight: bold;">Question loading...</p>
+                    <div id="buzzerSection" class="hidden">
+                        <button id="buzzerButton" onclick="buzz()" 
+                               style="width: 100%; height: 120px; font-size: 24px; background: #ff6b6b; color: white; border-radius: 12px; cursor: pointer;">
+                            🔔 BUZZ!
+                        </button>
+                        <div id="buzzStatus" class="status info" style="margin-top: 12px;"></div>
+                    </div>
                 </div>
                 
                 <!-- Results Phase -->
-                <div id="resultsPhase" class="hidden">
-                    <h3>Round Results</h3>
-                    <div id="roundResults"></div>
+                <div id="buzzerResultsPhase" class="hidden">
+                    <h3>Buzzer Results</h3>
+                    <div id="buzzerResults"></div>
                 </div>
             </div>
         </div>
