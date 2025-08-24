@@ -831,21 +831,34 @@ async def handle_buzzer_trivia_action(lobby_name: str, player_name: str, action:
             ))
     
     elif action == "buzz":
-        print(f"BUZZ ACTION: {player_name} attempting to buzz (host: {lobby.host})")
+        print(f"===== BACKEND BUZZ ACTION =====")
+        print(f"Player: {player_name}")
+        print(f"Is Host: {player_name == lobby.host}")
+        print(f"Lobby Host: {lobby.host}")
+        print(f"Current Buzzers: {[b['player'] for b in game_data.buzzers]}")
+        print(f"Current Round: {game_data.current_round}")
+        print(f"Current Category: {game_data.selected_category}")
+        
         buzz_time = payload.get("timestamp", time.time())
         
         # Check if player already buzzed
         player_already_buzzed = any(b["player"] == player_name for b in game_data.buzzers)
         print(f"Player {player_name} already buzzed: {player_already_buzzed}")
+        
         if not player_already_buzzed:
-            game_data.buzzers.append({
+            buzz_entry = {
                 "player": player_name,
                 "time": buzz_time,
                 "position": 0  # Will be calculated later
-            })
+            }
+            print(f"Creating buzz entry: {buzz_entry}")
             
-            print(f"Added {player_name} to buzzers list. Total buzzers: {len(game_data.buzzers)}")
+            game_data.buzzers.append(buzz_entry)
+            print(f"✅ ADDED {player_name} to buzzers list. Total buzzers: {len(game_data.buzzers)}")
+            print(f"Updated buzzer list: {[b['player'] for b in game_data.buzzers]}")
+            
             await storage.set_lobby(lobby_name, lobby)
+            print(f"✅ SAVED lobby state to storage")
             
             # Confirm buzz
             await manager.send_to_player(lobby_name, player_name, WSEvent(
@@ -853,6 +866,7 @@ async def handle_buzzer_trivia_action(lobby_name: str, player_name: str, action:
                 payload={"buzz_confirmed": True},
                 timestamp=time.time()
             ))
+            print(f"✅ SENT buzz confirmation to {player_name}")
             
             # Broadcast live buzzer update to everyone
             await manager.broadcast_to_lobby(lobby_name, WSEvent(
@@ -866,6 +880,11 @@ async def handle_buzzer_trivia_action(lobby_name: str, player_name: str, action:
                 },
                 timestamp=time.time()
             ))
+            print(f"✅ BROADCAST live buzzer update with {len(game_data.buzzers)} buzzers")
+        else:
+            print(f"❌ BUZZ BLOCKED - {player_name} already buzzed")
+        
+        print(f"===== END BUZZ ACTION =====")
     
     elif action == "award_points":
         # Only the host can award points
