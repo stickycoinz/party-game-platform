@@ -607,6 +607,12 @@ class GameClient {
     }
     
     showLiveBuzzers(payload) {
+        // Check if WebSocket is still connected
+        if (!this.websocket || this.websocket.readyState !== WebSocket.OPEN) {
+            console.log('⚠️ Ignoring buzzer update - WebSocket disconnected');
+            return;
+        }
+        
         console.log('Live buzzers update:', payload.buzzers);
         console.log('RAW BUZZER DATA:', JSON.stringify(payload.buzzers, null, 2));
         
