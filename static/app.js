@@ -608,6 +608,7 @@ class GameClient {
     
     showLiveBuzzers(payload) {
         console.log('Live buzzers update:', payload.buzzers);
+        console.log('RAW BUZZER DATA:', JSON.stringify(payload.buzzers, null, 2));
         console.log('Showing live buzzer list...');
         document.getElementById('buzzerTimer').textContent = payload.message;
         
