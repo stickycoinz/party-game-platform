@@ -609,6 +609,13 @@ class GameClient {
     showLiveBuzzers(payload) {
         console.log('Live buzzers update:', payload.buzzers);
         console.log('RAW BUZZER DATA:', JSON.stringify(payload.buzzers, null, 2));
+        
+        // DEBUG: Log each buzzer's time and player for sorting debug
+        if (payload.buzzers) {
+            payload.buzzers.forEach((buzzer, i) => {
+                console.log(`BUZZER ${i}: player=${buzzer.player}, time=${buzzer.time}, position=${buzzer.position}`);
+            });
+        }
         console.log('Showing live buzzer list...');
         document.getElementById('buzzerTimer').textContent = payload.message;
         
